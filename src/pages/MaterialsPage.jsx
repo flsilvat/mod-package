@@ -18,6 +18,7 @@ import { wouldCreateCycle } from '../lib/materials';
 import { chunk } from '../lib/batch';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
+import MultiSelect from '../components/MultiSelect';
 
 export default function MaterialsPage() {
   const { isAdmin } = useAuth();
@@ -154,10 +155,13 @@ export default function MaterialsPage() {
     });
   }
 
-  async function addComponent(kit, materialId, qty) {
+  async function addComponents(kit, ids) {
     const components = Array.isArray(kit.components) ? kit.components : [];
     await updateDoc(doc(db, COLLECTIONS.MATERIAL, kit.id), {
-      components: [...components, { materialId, qty }],
+      components: [
+        ...components,
+        ...ids.map((id) => ({ materialId: id, qty: 1 })),
+      ],
     });
   }
 
@@ -341,7 +345,7 @@ export default function MaterialsPage() {
                             materials={materials}
                             byId={byId}
                             isAdmin={isAdmin}
-                            onAddComponent={addComponent}
+                            onAddComponents={addComponents}
                             onRemoveComponent={removeComponent}
                             onQtyChange={changeComponentQty}
                           />
@@ -371,13 +375,10 @@ function KitDetail({
   materials,
   byId,
   isAdmin,
-  onAddComponent,
+  onAddComponents,
   onRemoveComponent,
   onQtyChange,
 }) {
-  const [pick, setPick] = useState('');
-  const [qty, setQty] = useState('1');
-  const [err, setErr] = useState(null);
   const components = Array.isArray(kit.components) ? kit.components : [];
 
   // Materials that can be added: not already a component, and would not
@@ -387,24 +388,6 @@ function KitDetail({
       !components.some((c) => c.materialId === m.id) &&
       !wouldCreateCycle(kit.id, m.id, byId)
   );
-
-  async function handleAdd(event) {
-    event.preventDefault();
-    if (!pick) return;
-    const n = Number(qty);
-    if (!(n > 0)) {
-      setErr('Quantity must be greater than zero.');
-      return;
-    }
-    setErr(null);
-    try {
-      await onAddComponent(kit, pick, n);
-      setPick('');
-      setQty('1');
-    } catch (e) {
-      setErr(e.message);
-    }
-  }
 
   return (
     <div className="detail-panel">
@@ -426,39 +409,15 @@ function KitDetail({
         )}
 
         {isAdmin && (
-          <form className="link-add" onSubmit={handleAdd}>
-            <select
-              className="input select"
-              value={pick}
-              onChange={(e) => setPick(e.target.value)}
-            >
-              <option value="">Add a component…</option>
-              {addable.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.partNumber}
-                  {m.description ? ` — ${m.description}` : ''}
-                  {m.isKit ? ' [kit]' : ''}
-                </option>
-              ))}
-            </select>
-            <input
-              className="input qty-input"
-              type="number"
-              min="0"
-              step="any"
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              aria-label="Quantity"
-            />
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm"
-              disabled={!pick}
-            >
-              Add
-            </button>
-            {err && <span className="kit-add-err">{err}</span>}
-          </form>
+          <MultiSelect
+            placeholder="Add components…"
+            onAdd={(ids) => onAddComponents(kit, ids)}
+            options={addable.map((m) => ({
+              id: m.id,
+              label: m.partNumber,
+              sublabel: (m.description || '') + (m.isKit ? '  [kit]' : ''),
+            }))}
+          />
         )}
       </div>
     </div>

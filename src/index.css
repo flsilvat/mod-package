@@ -881,11 +881,22 @@ a {
 }
 
 .detail-section {
-  margin-bottom: 18px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
 }
 
 .detail-section:last-child {
   margin-bottom: 0;
+}
+
+.detail-section:nth-of-type(odd) {
+  background: var(--surface);
+}
+
+.detail-section:nth-of-type(even) {
+  background: #eaecf0;
 }
 
 .detail-section-title {
@@ -1035,4 +1046,107 @@ a {
 .tag-manual {
   background: var(--ink);
   color: #fff;
+}
+
+/* ---------- multi-select link picker ---------- */
+
+.multiselect {
+  position: relative;
+  display: inline-block;
+  margin-top: 12px;
+}
+
+.ms-panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 320px;
+  max-width: calc(100vw - 64px);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.ms-search {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  font-size: 13px;
+  padding: 9px 11px;
+}
+
+.ms-search:focus {
+  outline: none;
+  box-shadow: none;
+  border-bottom-color: var(--accent);
+}
+
+.ms-list {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.ms-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 11px;
+  cursor: pointer;
+}
+
+.ms-option.is-highlight {
+  background: var(--accent-wash);
+}
+
+.ms-option input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.ms-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.ms-sublabel {
+  font-size: 12px;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-empty {
+  margin: 0;
+  padding: 14px;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+.ms-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.ms-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.ms-foot-btns {
+  display: flex;
+  gap: 6px;
 }

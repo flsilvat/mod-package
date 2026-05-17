@@ -40,8 +40,7 @@ Collection names live in one place: `src/lib/collections.js`.
 `registration` · `fleetType` · `createdAt`
 
 ### `serviceBulletins` — SERVICE_BULLETIN
-`sbRef` · `title` · `drawingIds[]` · `materials[{materialId, qty}]` ·
-`manualRefs[{type, ref}]` (AMM, SRM, IPC…)
+`sbRef` · `title` · `drawingIds[]` · `materials[{materialId, qty}]`
 
 ### `sbConfigs` — SB_CONFIG
 Belongs to one service bulletin. Groups the aircraft a config applies to.

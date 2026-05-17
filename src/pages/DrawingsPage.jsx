@@ -18,6 +18,7 @@ import { chunk } from '../lib/batch';
 import { wouldRefCycle } from '../lib/drawings';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
+import MultiSelect from '../components/MultiSelect';
 
 export default function DrawingsPage() {
   const { isAdmin } = useAuth();
@@ -371,32 +372,17 @@ function DrawingDetail({
   const refIds = drawing.refDrawingIds || [];
 
   // ----- materials -----
-  const [matPick, setMatPick] = useState('');
-  const [matQty, setMatQty] = useState('1');
-  const [err, setErr] = useState(null);
-
   const addableMaterials = materials.filter(
     (m) => !matLinks.some((l) => l.materialId === m.id)
   );
 
-  async function addMaterial(event) {
-    event.preventDefault();
-    if (!matPick) return;
-    const q = Number(matQty);
-    if (!(q > 0)) {
-      setErr('Quantity must be greater than zero.');
-      return;
-    }
-    setErr(null);
-    try {
-      await updateDoc(drawingRef, {
-        materials: [...matLinks, { materialId: matPick, qty: q }],
-      });
-      setMatPick('');
-      setMatQty('1');
-    } catch (e) {
-      setErr(e.message);
-    }
+  async function addMaterials(ids) {
+    await updateDoc(drawingRef, {
+      materials: [
+        ...matLinks,
+        ...ids.map((id) => ({ materialId: id, qty: 1 })),
+      ],
+    });
   }
 
   async function removeMaterial(materialId) {
@@ -431,8 +417,6 @@ function DrawingDetail({
   }
 
   // ----- referenced drawings -----
-  const [refPick, setRefPick] = useState('');
-
   // Other drawings that can be referenced: not this one, not already
   // referenced, and not one that would close a loop.
   const addableRefs = drawings.filter(
@@ -442,11 +426,8 @@ function DrawingDetail({
       !wouldRefCycle(drawing.id, d.id, drawingById)
   );
 
-  async function addRef(event) {
-    event.preventDefault();
-    if (!refPick) return;
-    await updateDoc(drawingRef, { refDrawingIds: [...refIds, refPick] });
-    setRefPick('');
+  async function addRefs(ids) {
+    await updateDoc(drawingRef, { refDrawingIds: [...refIds, ...ids] });
   }
 
   async function removeRef(id) {
@@ -456,15 +437,10 @@ function DrawingDetail({
   }
 
   // ----- aircraft -----
-  const [acPick, setAcPick] = useState('');
-
   const addableAircraft = aircraft.filter((a) => !acLinks.includes(a.id));
 
-  async function addAircraft(event) {
-    event.preventDefault();
-    if (!acPick) return;
-    await updateDoc(drawingRef, { aircraftIds: [...acLinks, acPick] });
-    setAcPick('');
+  async function addAircrafts(ids) {
+    await updateDoc(drawingRef, { aircraftIds: [...acLinks, ...ids] });
   }
 
   async function removeAircraft(aircraftId) {
@@ -529,39 +505,16 @@ function DrawingDetail({
 
         {isAdmin && (
           <>
-            <form className="link-add" onSubmit={addMaterial}>
-              <select
-                className="input select"
-                value={matPick}
-                onChange={(e) => setMatPick(e.target.value)}
-              >
-                <option value="">Add a material…</option>
-                {addableMaterials.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.partNumber}
-                    {m.description ? ` — ${m.description}` : ''}
-                    {m.isKit ? ' [kit]' : ''}
-                  </option>
-                ))}
-              </select>
-              <input
-                className="input qty-input"
-                type="number"
-                min="0"
-                step="any"
-                value={matQty}
-                onChange={(e) => setMatQty(e.target.value)}
-                aria-label="Quantity"
-              />
-              <button
-                type="submit"
-                className="btn btn-primary btn-sm"
-                disabled={!matPick}
-              >
-                Add
-              </button>
-              {err && <span className="kit-add-err">{err}</span>}
-            </form>
+            <MultiSelect
+              placeholder="Add materials…"
+              onAdd={addMaterials}
+              options={addableMaterials.map((m) => ({
+                id: m.id,
+                label: m.partNumber,
+                sublabel:
+                  (m.description || '') + (m.isKit ? '  [kit]' : ''),
+              }))}
+            />
 
             <BatchInput
               noun="materials"
@@ -601,29 +554,15 @@ function DrawingDetail({
         )}
 
         {isAdmin && (
-          <form className="link-add" onSubmit={addRef}>
-            <select
-              className="input select"
-              value={refPick}
-              onChange={(e) => setRefPick(e.target.value)}
-            >
-              <option value="">Reference a drawing…</option>
-              {addableRefs.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.docNumber}
-                  {d.rev ? ` rev ${d.rev}` : ''}
-                  {d.title ? ` — ${d.title}` : ''}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm"
-              disabled={!refPick}
-            >
-              Add
-            </button>
-          </form>
+          <MultiSelect
+            placeholder="Reference drawings…"
+            onAdd={addRefs}
+            options={addableRefs.map((d) => ({
+              id: d.id,
+              label: d.docNumber,
+              sublabel: (d.rev ? `rev ${d.rev}  ` : '') + (d.title || ''),
+            }))}
+          />
         )}
       </div>
 
@@ -661,28 +600,15 @@ function DrawingDetail({
         )}
 
         {isAdmin && (
-          <form className="link-add" onSubmit={addAircraft}>
-            <select
-              className="input select"
-              value={acPick}
-              onChange={(e) => setAcPick(e.target.value)}
-            >
-              <option value="">Add an aircraft…</option>
-              {addableAircraft.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.registration}
-                  {a.fleetType ? ` — ${a.fleetType}` : ''}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm"
-              disabled={!acPick}
-            >
-              Add
-            </button>
-          </form>
+          <MultiSelect
+            placeholder="Add aircraft…"
+            onAdd={addAircrafts}
+            options={addableAircraft.map((a) => ({
+              id: a.id,
+              label: a.registration,
+              sublabel: a.fleetType || '',
+            }))}
+          />
         )}
       </div>
     </div>

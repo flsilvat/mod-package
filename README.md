@@ -135,6 +135,7 @@ src/
   components/NoAccess.jsx  shown to signed-in users with no role
   components/BatchInput.jsx  reusable bulk-add panel
   components/FilterBar.jsx   reusable table quick-filter
+  components/MultiSelect.jsx  searchable checkbox link picker
   components/SBDetail.jsx    expanded Service Bulletin view
   pages/HomePage.jsx       overview
   pages/LoginPage.jsx      email / password sign-in

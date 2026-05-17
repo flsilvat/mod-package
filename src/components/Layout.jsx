@@ -68,7 +68,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.6 · service bulletins</span>
+        <span className="footer-build">v0.7 · search &amp; multi-select</span>
       </footer>
     </div>
   );

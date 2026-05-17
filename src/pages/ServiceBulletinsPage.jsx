@@ -121,7 +121,6 @@ export default function ServiceBulletinsPage() {
         title: title.trim(),
         drawingIds: [],
         materials: [],
-        manualRefs: [],
         createdAt: serverTimestamp(),
       });
       setSbRef('');
@@ -145,7 +144,6 @@ export default function ServiceBulletinsPage() {
         title: (row.title || '').trim(),
         drawingIds: [],
         materials: [],
-        manualRefs: [],
         createdAt: serverTimestamp(),
       });
     }

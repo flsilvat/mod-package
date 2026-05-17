@@ -10,9 +10,7 @@ import {
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import BatchInput from './BatchInput';
-
-// Common aircraft manual types — free text is still allowed.
-const MANUAL_TYPES = ['AMM', 'SRM', 'IPC', 'CMM', 'WDM', 'TSM', 'FIM', 'NTM', 'AWM'];
+import MultiSelect from './MultiSelect';
 
 // ----- expanded view for one Service Bulletin -----
 
@@ -31,7 +29,6 @@ export default function SBDetail({
   const sbRef = doc(db, COLLECTIONS.SERVICE_BULLETIN, sb.id);
   const drawingIds = sb.drawingIds || [];
   const matLinks = sb.materials || [];
-  const manualRefs = sb.manualRefs || [];
 
   // ----- configurations -----
   const [configName, setConfigName] = useState('');
@@ -53,14 +50,10 @@ export default function SBDetail({
   }
 
   // ----- drawings referenced -----
-  const [drawPick, setDrawPick] = useState('');
   const addableDrawings = drawings.filter((d) => !drawingIds.includes(d.id));
 
-  async function addDrawing(event) {
-    event.preventDefault();
-    if (!drawPick) return;
-    await updateDoc(sbRef, { drawingIds: [...drawingIds, drawPick] });
-    setDrawPick('');
+  async function addDrawings(ids) {
+    await updateDoc(sbRef, { drawingIds: [...drawingIds, ...ids] });
   }
 
   async function removeDrawing(id) {
@@ -70,31 +63,17 @@ export default function SBDetail({
   }
 
   // ----- materials required -----
-  const [matPick, setMatPick] = useState('');
-  const [matQty, setMatQty] = useState('1');
-  const [matErr, setMatErr] = useState(null);
   const addableMaterials = materials.filter(
     (m) => !matLinks.some((l) => l.materialId === m.id)
   );
 
-  async function addMaterial(event) {
-    event.preventDefault();
-    if (!matPick) return;
-    const q = Number(matQty);
-    if (!(q > 0)) {
-      setMatErr('Quantity must be greater than zero.');
-      return;
-    }
-    setMatErr(null);
-    try {
-      await updateDoc(sbRef, {
-        materials: [...matLinks, { materialId: matPick, qty: q }],
-      });
-      setMatPick('');
-      setMatQty('1');
-    } catch (e) {
-      setMatErr(e.message);
-    }
+  async function addMaterials(ids) {
+    await updateDoc(sbRef, {
+      materials: [
+        ...matLinks,
+        ...ids.map((id) => ({ materialId: id, qty: 1 })),
+      ],
+    });
   }
 
   async function removeMaterial(materialId) {
@@ -126,28 +105,6 @@ export default function SBDetail({
     if (additions.length) {
       await updateDoc(sbRef, { materials: [...matLinks, ...additions] });
     }
-  }
-
-  // ----- manual references -----
-  const [mType, setMType] = useState('');
-  const [mRef, setMRef] = useState('');
-
-  async function addManualRef(event) {
-    event.preventDefault();
-    const type = mType.trim().toUpperCase();
-    const ref = mRef.trim();
-    if (!type || !ref) return;
-    await updateDoc(sbRef, {
-      manualRefs: [...manualRefs, { type, ref }],
-    });
-    setMType('');
-    setMRef('');
-  }
-
-  async function removeManualRef(index) {
-    await updateDoc(sbRef, {
-      manualRefs: manualRefs.filter((_, i) => i !== index),
-    });
   }
 
   return (
@@ -225,29 +182,15 @@ export default function SBDetail({
         )}
 
         {isAdmin && (
-          <form className="link-add" onSubmit={addDrawing}>
-            <select
-              className="input select"
-              value={drawPick}
-              onChange={(e) => setDrawPick(e.target.value)}
-            >
-              <option value="">Reference a drawing…</option>
-              {addableDrawings.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.docNumber}
-                  {d.rev ? ` rev ${d.rev}` : ''}
-                  {d.title ? ` — ${d.title}` : ''}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm"
-              disabled={!drawPick}
-            >
-              Add
-            </button>
-          </form>
+          <MultiSelect
+            placeholder="Reference drawings…"
+            onAdd={addDrawings}
+            options={addableDrawings.map((d) => ({
+              id: d.id,
+              label: d.docNumber,
+              sublabel: (d.rev ? `rev ${d.rev}  ` : '') + (d.title || ''),
+            }))}
+          />
         )}
       </div>
 
@@ -303,39 +246,16 @@ export default function SBDetail({
 
         {isAdmin && (
           <>
-            <form className="link-add" onSubmit={addMaterial}>
-              <select
-                className="input select"
-                value={matPick}
-                onChange={(e) => setMatPick(e.target.value)}
-              >
-                <option value="">Add a material…</option>
-                {addableMaterials.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.partNumber}
-                    {m.description ? ` — ${m.description}` : ''}
-                    {m.isKit ? ' [kit]' : ''}
-                  </option>
-                ))}
-              </select>
-              <input
-                className="input qty-input"
-                type="number"
-                min="0"
-                step="any"
-                value={matQty}
-                onChange={(e) => setMatQty(e.target.value)}
-                aria-label="Quantity"
-              />
-              <button
-                type="submit"
-                className="btn btn-primary btn-sm"
-                disabled={!matPick}
-              >
-                Add
-              </button>
-              {matErr && <span className="kit-add-err">{matErr}</span>}
-            </form>
+            <MultiSelect
+              placeholder="Add materials…"
+              onAdd={addMaterials}
+              options={addableMaterials.map((m) => ({
+                id: m.id,
+                label: m.partNumber,
+                sublabel:
+                  (m.description || '') + (m.isKit ? '  [kit]' : ''),
+              }))}
+            />
 
             <BatchInput
               noun="materials"
@@ -356,65 +276,6 @@ export default function SBDetail({
           </>
         )}
       </div>
-
-      {/* ---- manual references ---- */}
-      <div className="detail-section">
-        <p className="detail-section-title">Manual references</p>
-
-        {manualRefs.length === 0 ? (
-          <p className="kit-empty">No manual references yet.</p>
-        ) : (
-          <ul className="link-list">
-            {manualRefs.map((mr, index) => (
-              <li key={index} className="link-row">
-                <span className="tag tag-manual">{mr.type}</span>
-                <span className="mono strong">{mr.ref}</span>
-                {isAdmin && (
-                  <button
-                    className="kit-remove"
-                    onClick={() => removeManualRef(index)}
-                    aria-label="Remove"
-                  >
-                    ×
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {isAdmin && (
-          <form className="link-add" onSubmit={addManualRef}>
-            <input
-              className="input field-rev"
-              placeholder="Type"
-              value={mType}
-              onChange={(e) => setMType(e.target.value)}
-              list="manual-types"
-              aria-label="Manual type"
-            />
-            <datalist id="manual-types">
-              {MANUAL_TYPES.map((t) => (
-                <option key={t} value={t} />
-              ))}
-            </datalist>
-            <input
-              className="input"
-              placeholder="Reference (e.g. 25-21-00)"
-              value={mRef}
-              onChange={(e) => setMRef(e.target.value)}
-              aria-label="Manual reference"
-            />
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm"
-              disabled={!mType.trim() || !mRef.trim()}
-            >
-              Add
-            </button>
-          </form>
-        )}
-      </div>
     </div>
   );
 }
@@ -424,7 +285,6 @@ export default function SBDetail({
 function ConfigCard({ config, aircraft, aircraftById, isAdmin }) {
   const configRef = doc(db, COLLECTIONS.SB_CONFIG, config.id);
   const acIds = config.aircraftIds || [];
-  const [acPick, setAcPick] = useState('');
 
   const addableAircraft = aircraft.filter((a) => !acIds.includes(a.id));
 
@@ -434,11 +294,8 @@ function ConfigCard({ config, aircraft, aircraftById, isAdmin }) {
     await updateDoc(configRef, { name });
   }
 
-  async function addAircraft(event) {
-    event.preventDefault();
-    if (!acPick) return;
-    await updateDoc(configRef, { aircraftIds: [...acIds, acPick] });
-    setAcPick('');
+  async function addAircrafts(ids) {
+    await updateDoc(configRef, { aircraftIds: [...acIds, ...ids] });
   }
 
   async function removeAircraft(id) {
@@ -502,28 +359,15 @@ function ConfigCard({ config, aircraft, aircraftById, isAdmin }) {
       </div>
 
       {isAdmin && (
-        <form className="link-add" onSubmit={addAircraft}>
-          <select
-            className="input select"
-            value={acPick}
-            onChange={(e) => setAcPick(e.target.value)}
-          >
-            <option value="">Add an aircraft…</option>
-            {addableAircraft.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.registration}
-                {a.fleetType ? ` — ${a.fleetType}` : ''}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="btn btn-primary btn-sm"
-            disabled={!acPick}
-          >
-            Add
-          </button>
-        </form>
+        <MultiSelect
+          placeholder="Add aircraft…"
+          onAdd={addAircrafts}
+          options={addableAircraft.map((a) => ({
+            id: a.id,
+            label: a.registration,
+            sublabel: a.fleetType || '',
+          }))}
+        />
       )}
     </div>
   );
