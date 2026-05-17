@@ -1,0 +1,25 @@
+{
+  "name": "mod-package-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Aircraft modification package manager — builds Technical Orders from Service Bulletins.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "firebase": "^11.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
