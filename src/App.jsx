@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import AircraftPage from './pages/AircraftPage.jsx';
 import MaterialsPage from './pages/MaterialsPage.jsx';
 import DrawingsPage from './pages/DrawingsPage.jsx';
+import ServiceBulletinsPage from './pages/ServiceBulletinsPage.jsx';
 
 export default function App() {
   const { user, role, loading } = useAuth();
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="aircraft" element={<AircraftPage />} />
         <Route path="materials" element={<MaterialsPage />} />
         <Route path="drawings" element={<DrawingsPage />} />
+        <Route path="service-bulletins" element={<ServiceBulletinsPage />} />
       </Route>
     </Routes>
   );

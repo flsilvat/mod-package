@@ -1,0 +1,352 @@
+import { useState, useEffect, useMemo, Fragment } from 'react';
+import {
+  collection,
+  addDoc,
+  doc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp,
+  writeBatch,
+} from 'firebase/firestore';
+import { db } from '../firebase';
+import { COLLECTIONS } from '../lib/collections';
+import { useAuth } from '../lib/auth';
+import { chunk } from '../lib/batch';
+import BatchInput from '../components/BatchInput';
+import FilterBar from '../components/FilterBar';
+import SBDetail from '../components/SBDetail';
+
+export default function ServiceBulletinsPage() {
+  const { isAdmin } = useAuth();
+
+  const [sbs, setSbs] = useState([]);
+  const [configs, setConfigs] = useState([]);
+  const [drawings, setDrawings] = useState([]);
+  const [materials, setMaterials] = useState([]);
+  const [aircraft, setAircraft] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Add form
+  const [sbRef, setSbRef] = useState('');
+  const [title, setTitle] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const [expanded, setExpanded] = useState(() => new Set());
+  const [filter, setFilter] = useState('');
+
+  // Live data — bulletins, their configs, plus drawings/materials/aircraft
+  // for the link pickers inside each bulletin.
+  useEffect(() => {
+    const subs = [
+      onSnapshot(
+        query(collection(db, COLLECTIONS.SERVICE_BULLETIN), orderBy('sbRef')),
+        (snap) => {
+          setSbs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+          setLoading(false);
+        },
+        (err) => {
+          setError(err.message);
+          setLoading(false);
+        }
+      ),
+      onSnapshot(collection(db, COLLECTIONS.SB_CONFIG), (snap) =>
+        setConfigs(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      ),
+      onSnapshot(
+        query(collection(db, COLLECTIONS.DRAWING), orderBy('docNumber')),
+        (snap) => setDrawings(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      ),
+      onSnapshot(
+        query(collection(db, COLLECTIONS.MATERIAL), orderBy('partNumber')),
+        (snap) => setMaterials(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      ),
+      onSnapshot(
+        query(collection(db, COLLECTIONS.AIRCRAFT), orderBy('registration')),
+        (snap) => setAircraft(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      ),
+    ];
+    return () => subs.forEach((unsub) => unsub());
+  }, []);
+
+  const drawingById = useMemo(() => {
+    const m = new Map();
+    for (const x of drawings) m.set(x.id, x);
+    return m;
+  }, [drawings]);
+
+  const materialById = useMemo(() => {
+    const m = new Map();
+    for (const x of materials) m.set(x.id, x);
+    return m;
+  }, [materials]);
+
+  const materialByPN = useMemo(() => {
+    const m = new Map();
+    for (const x of materials) m.set(x.partNumber.toLowerCase(), x);
+    return m;
+  }, [materials]);
+
+  const aircraftById = useMemo(() => {
+    const m = new Map();
+    for (const x of aircraft) m.set(x.id, x);
+    return m;
+  }, [aircraft]);
+
+  // Quick filter — matches SB reference or title.
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return sbs;
+    return sbs.filter(
+      (s) =>
+        s.sbRef.toLowerCase().includes(q) ||
+        (s.title || '').toLowerCase().includes(q)
+    );
+  }, [sbs, filter]);
+
+  async function handleAdd(event) {
+    event.preventDefault();
+    const ref = sbRef.trim();
+    if (!ref) return;
+    if (sbs.some((s) => s.sbRef.toLowerCase() === ref.toLowerCase())) {
+      setError(`A service bulletin "${ref}" already exists.`);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await addDoc(collection(db, COLLECTIONS.SERVICE_BULLETIN), {
+        sbRef: ref,
+        title: title.trim(),
+        drawingIds: [],
+        materials: [],
+        manualRefs: [],
+        createdAt: serverTimestamp(),
+      });
+      setSbRef('');
+      setTitle('');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function importSBs(rows) {
+    const existing = new Set(sbs.map((s) => s.sbRef.toLowerCase()));
+    const toAdd = [];
+    for (const row of rows) {
+      const ref = (row.sbRef || '').trim();
+      if (!ref || existing.has(ref.toLowerCase())) continue;
+      existing.add(ref.toLowerCase());
+      toAdd.push({
+        sbRef: ref,
+        title: (row.title || '').trim(),
+        drawingIds: [],
+        materials: [],
+        manualRefs: [],
+        createdAt: serverTimestamp(),
+      });
+    }
+    for (const group of chunk(toAdd, 450)) {
+      const batch = writeBatch(db);
+      for (const data of group) {
+        batch.set(doc(collection(db, COLLECTIONS.SERVICE_BULLETIN)), data);
+      }
+      await batch.commit();
+    }
+  }
+
+  async function handleDelete(sb) {
+    const childConfigs = configs.filter((c) => c.sbId === sb.id);
+    const extra = childConfigs.length
+      ? `\n\nIts ${childConfigs.length} configuration(s) will also be deleted.`
+      : '';
+    if (!window.confirm(`Delete service bulletin "${sb.sbRef}"?${extra}`)) {
+      return;
+    }
+    setError(null);
+    try {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, COLLECTIONS.SERVICE_BULLETIN, sb.id));
+      for (const c of childConfigs) {
+        batch.delete(doc(db, COLLECTIONS.SB_CONFIG, c.id));
+      }
+      await batch.commit();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function toggleExpand(id) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const colSpan = isAdmin ? 5 : 4;
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <p className="eyebrow">Entity</p>
+        <h1>Service Bulletins</h1>
+        <p className="lede">
+          The modification instructions. Each bulletin has configurations
+          (aircraft groupings), referenced drawings, required materials, and
+          references to the aircraft manuals.
+        </p>
+      </div>
+
+      {isAdmin && (
+        <section className="panel">
+          <h2 className="panel-title">Add a service bulletin</h2>
+          <form className="form-row" onSubmit={handleAdd}>
+            <div className="field">
+              <label htmlFor="sbref">SB reference</label>
+              <input
+                id="sbref"
+                className="input mono"
+                placeholder="SB-777-25-0142"
+                value={sbRef}
+                onChange={(e) => setSbRef(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="field field-wide">
+              <label htmlFor="sbtitle">Title</label>
+              <input
+                id="sbtitle"
+                className="input"
+                placeholder="Cabin reconfiguration — forward galley"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? 'Saving…' : 'Add bulletin'}
+            </button>
+          </form>
+          {error && <p className="notice notice-error">{error}</p>}
+
+          <BatchInput
+            noun="bulletins"
+            onImport={importSBs}
+            fields={[
+              { key: 'sbRef', label: 'SB reference', required: true },
+              { key: 'title', label: 'Title' },
+            ]}
+          />
+        </section>
+      )}
+
+      <section className="panel">
+        <div className="panel-titlebar">
+          <h2 className="panel-title">Bulletins</h2>
+          <span className="count">{sbs.length}</span>
+          <FilterBar
+            value={filter}
+            onChange={setFilter}
+            placeholder="Filter bulletins…"
+            count={filtered.length}
+            total={sbs.length}
+          />
+        </div>
+
+        {loading ? (
+          <p className="notice">Loading…</p>
+        ) : sbs.length === 0 ? (
+          <p className="notice">
+            No service bulletins yet.
+            {isAdmin
+              ? ' Add one above, or bulk add a list.'
+              : ' An admin can add the first one.'}
+          </p>
+        ) : filtered.length === 0 ? (
+          <p className="notice">No bulletins match the filter.</p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th className="col-caret" />
+                <th>SB reference</th>
+                <th>Title</th>
+                <th>Contents</th>
+                {isAdmin && <th className="col-action" />}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((sb) => {
+                const sbConfigs = configs.filter((c) => c.sbId === sb.id);
+                const drawCount = (sb.drawingIds || []).length;
+                const matCount = (sb.materials || []).length;
+                const isOpen = expanded.has(sb.id);
+                return (
+                  <Fragment key={sb.id}>
+                    <tr>
+                      <td className="col-caret">
+                        <button
+                          className="expand-btn"
+                          onClick={() => toggleExpand(sb.id)}
+                          aria-label={isOpen ? 'Collapse' : 'Expand'}
+                        >
+                          {isOpen ? '▾' : '▸'}
+                        </button>
+                      </td>
+                      <td className="mono strong">{sb.sbRef}</td>
+                      <td>{sb.title || <span className="dim">—</span>}</td>
+                      <td className="dim">
+                        {sbConfigs.length} config
+                        {sbConfigs.length === 1 ? '' : 's'} · {drawCount}{' '}
+                        drawing{drawCount === 1 ? '' : 's'} · {matCount}{' '}
+                        material{matCount === 1 ? '' : 's'}
+                      </td>
+                      {isAdmin && (
+                        <td className="col-action">
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleDelete(sb)}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                    {isOpen && (
+                      <tr className="detail-row">
+                        <td colSpan={colSpan}>
+                          <SBDetail
+                            sb={sb}
+                            configs={sbConfigs}
+                            drawings={drawings}
+                            materials={materials}
+                            aircraft={aircraft}
+                            drawingById={drawingById}
+                            materialById={materialById}
+                            materialByPN={materialByPN}
+                            aircraftById={aircraftById}
+                            isAdmin={isAdmin}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        {!isAdmin && !loading && (
+          <p className="notice viewer-note">
+            You have viewer access — read-only.
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}

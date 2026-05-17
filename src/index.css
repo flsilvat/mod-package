@@ -966,3 +966,73 @@ a {
     min-width: 0;
   }
 }
+
+/* ---------- SB configurations ---------- */
+
+.config-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: var(--surface);
+}
+
+.config-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.config-name {
+  font-weight: 600;
+  font-size: 14px;
+  max-width: 260px;
+}
+
+.config-name-static {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.config-aircraft {
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--accent-wash);
+  border: 1px solid #c4d8ea;
+  border-radius: 20px;
+  padding: 2px 7px 2px 10px;
+  font-size: 12px;
+}
+
+.chip-x {
+  background: transparent;
+  border: none;
+  color: var(--accent-deep);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.chip-x:hover {
+  color: var(--hazard);
+}
+
+.tag-manual {
+  background: var(--ink);
+  color: #fff;
+}
