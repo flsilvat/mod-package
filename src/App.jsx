@@ -5,6 +5,7 @@ import NoAccess from './components/NoAccess.jsx';
 import HomePage from './pages/HomePage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import AircraftPage from './pages/AircraftPage.jsx';
+import MaterialsPage from './pages/MaterialsPage.jsx';
 
 export default function App() {
   const { user, role, loading } = useAuth();
@@ -30,6 +31,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
         <Route path="aircraft" element={<AircraftPage />} />
+        <Route path="materials" element={<MaterialsPage />} />
       </Route>
     </Routes>
   );

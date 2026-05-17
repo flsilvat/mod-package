@@ -128,11 +128,13 @@ src/
   index.css                theme and styles
   lib/collections.js       Firestore collection names
   lib/auth.jsx             auth context — current user and role
+  lib/materials.js         kit recursion + cycle-guard helpers
   components/Layout.jsx    app shell — header, nav, user chip
   components/NoAccess.jsx  shown to signed-in users with no role
   pages/HomePage.jsx       overview
   pages/LoginPage.jsx      email / password sign-in
   pages/AircraftPage.jsx   the Aircraft entity
+  pages/MaterialsPage.jsx  the Materials entity — parts and kits
 SCHEMA.md                  the full data model
 firestore.rules            security rules — publish these in the console
 ```
@@ -141,6 +143,6 @@ firestore.rules            security rules — publish these in the console
 
 ## What's next
 
-1. **Materials** — the next entity, including the kit-within-kit nesting.
-2. Then Drawings, Service Bulletins and their configs, the Technical Order,
-   and finally the SAP export.
+1. **Drawings** — documents that can reference other drawings.
+2. Then Service Bulletins and their configs, the Technical Order, and finally
+   the SAP export.
