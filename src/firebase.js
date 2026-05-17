@@ -2,6 +2,7 @@
 // Config values come from environment variables (see .env.example / README.md).
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -24,3 +25,6 @@ const app = initializeApp(firebaseConfig);
 
 // The Firestore database handle — import this wherever you read/write data.
 export const db = getFirestore(app);
+
+// The Authentication handle — import this for sign-in / sign-out.
+export const auth = getAuth(app);

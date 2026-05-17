@@ -455,6 +455,145 @@ a {
   color: var(--ink-soft);
 }
 
+/* ---------- auth: sign-in screen ---------- */
+
+.auth-screen {
+  position: relative;
+  z-index: 1;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 30px 28px;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.auth-brand .brand-name {
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.auth-tagline {
+  margin: 4px 0 22px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.auth-card .field {
+  margin-bottom: 14px;
+}
+
+.auth-card .input {
+  width: 100%;
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.auth-help {
+  margin: 16px 0 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.splash {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* ---------- auth: user chip in the header ---------- */
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 16px;
+  border-left: 1px solid #3a4150;
+}
+
+.user-email {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #c5c8d1;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.role-admin {
+  background: var(--accent);
+  color: #fff;
+}
+
+.role-viewer {
+  background: #3a4150;
+  color: #c5c8d1;
+}
+
+.signout {
+  background: transparent;
+  border: 1px solid #3a4150;
+  color: #c5c8d1;
+  border-radius: 5px;
+  width: 26px;
+  height: 26px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.signout:hover {
+  border-color: var(--hazard);
+  color: #ff9b78;
+}
+
+.viewer-note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-top: 12px;
+}
+
 @media (max-width: 560px) {
   .topbar {
     padding: 12px 16px;
@@ -464,5 +603,9 @@ a {
   }
   .form-row .btn {
     width: 100%;
+  }
+  .user-chip {
+    padding-left: 0;
+    border-left: none;
   }
 }

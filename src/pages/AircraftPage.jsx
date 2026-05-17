@@ -11,11 +11,14 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
+import { useAuth } from '../lib/auth';
 
 // A starter list of fleet types — free text is still allowed.
 const FLEET_TYPES = ['777-200', '777-300', '787-8', '787-9', '787-10', 'A320', 'A350-1000'];
 
 export default function AircraftPage() {
+  const { isAdmin } = useAuth();
+
   const [aircraft, setAircraft] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -88,43 +91,46 @@ export default function AircraftPage() {
         </p>
       </div>
 
-      <section className="panel">
-        <h2 className="panel-title">Add an aircraft</h2>
-        <form className="form-row" onSubmit={handleAdd}>
-          <div className="field">
-            <label htmlFor="reg">Registration</label>
-            <input
-              id="reg"
-              className="input mono"
-              placeholder="G-ABCD"
-              value={registration}
-              onChange={(e) => setRegistration(e.target.value)}
-              autoComplete="off"
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="fleet">Fleet type</label>
-            <input
-              id="fleet"
-              className="input"
-              placeholder="777-200"
-              value={fleetType}
-              onChange={(e) => setFleetType(e.target.value)}
-              list="fleet-types"
-              autoComplete="off"
-            />
-            <datalist id="fleet-types">
-              {FLEET_TYPES.map((t) => (
-                <option key={t} value={t} />
-              ))}
-            </datalist>
-          </div>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : 'Add aircraft'}
-          </button>
-        </form>
-        {error && <p className="notice notice-error">{error}</p>}
-      </section>
+      {/* Only admins can add. Viewers don't see this panel at all. */}
+      {isAdmin && (
+        <section className="panel">
+          <h2 className="panel-title">Add an aircraft</h2>
+          <form className="form-row" onSubmit={handleAdd}>
+            <div className="field">
+              <label htmlFor="reg">Registration</label>
+              <input
+                id="reg"
+                className="input mono"
+                placeholder="G-ABCD"
+                value={registration}
+                onChange={(e) => setRegistration(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="fleet">Fleet type</label>
+              <input
+                id="fleet"
+                className="input"
+                placeholder="777-200"
+                value={fleetType}
+                onChange={(e) => setFleetType(e.target.value)}
+                list="fleet-types"
+                autoComplete="off"
+              />
+              <datalist id="fleet-types">
+                {FLEET_TYPES.map((t) => (
+                  <option key={t} value={t} />
+                ))}
+              </datalist>
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? 'Saving…' : 'Add aircraft'}
+            </button>
+          </form>
+          {error && <p className="notice notice-error">{error}</p>}
+        </section>
+      )}
 
       <section className="panel">
         <div className="panel-titlebar">
@@ -136,7 +142,10 @@ export default function AircraftPage() {
           <p className="notice">Loading…</p>
         ) : aircraft.length === 0 ? (
           <p className="notice">
-            No aircraft yet. Add the first one with the form above.
+            No aircraft yet.
+            {isAdmin
+              ? ' Add the first one with the form above.'
+              : ' An admin can add the first one.'}
           </p>
         ) : (
           <table className="table">
@@ -144,7 +153,7 @@ export default function AircraftPage() {
               <tr>
                 <th>Registration</th>
                 <th>Fleet type</th>
-                <th className="col-action" />
+                {isAdmin && <th className="col-action" />}
               </tr>
             </thead>
             <tbody>
@@ -152,18 +161,25 @@ export default function AircraftPage() {
                 <tr key={ac.id}>
                   <td className="mono strong">{ac.registration}</td>
                   <td>{ac.fleetType || <span className="dim">—</span>}</td>
-                  <td className="col-action">
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => handleDelete(ac.id, ac.registration)}
-                    >
-                      Delete
-                    </button>
-                  </td>
+                  {isAdmin && (
+                    <td className="col-action">
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handleDelete(ac.id, ac.registration)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
+        )}
+        {!isAdmin && !loading && (
+          <p className="notice viewer-note">
+            You have viewer access — read-only.
+          </p>
         )}
       </section>
     </div>

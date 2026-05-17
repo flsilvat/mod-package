@@ -19,6 +19,7 @@ Collection names live in one place: `src/lib/collections.js`.
 | HTL                 | `htls`               |
 | GTL                 | `gtls`               |
 | OPERATION           | `operations`         |
+| —                   | `userRoles`          |
 
 ## Conventions
 
@@ -75,6 +76,11 @@ General task list. A reusable group of operations.
 A single SAP step. Belongs to one GTL.
 `gtlId` · `opNumber` · `text` · `drawingIds[]` ·
 `materials[{materialId, qty}]`
+
+### `userRoles` — access control
+Not a data-model entity. One document per person; the document **id is their
+email** (lowercase). Field: `role` — either `admin` or `viewer`.
+An admin can read and change everything; a viewer can only read.
 
 ## Relationships at a glance
 

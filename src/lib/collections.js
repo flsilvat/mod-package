@@ -16,4 +16,7 @@ export const COLLECTIONS = {
   HTL: 'htls', //                  HTL        (hierarchical task list)
   GTL: 'gtls', //                  GTL        (general task list)
   OPERATION: 'operations', //      OPERATION  (a single SAP step)
+
+  // Access control — one doc per person, id = their email, field: role.
+  USER_ROLES: 'userRoles',
 };

@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { useAuth } from '../lib/auth';
 
 // Navigation items. As entities are built, add them here. Items marked
 // `ready: false` render as disabled placeholders so the roadmap is visible.
@@ -12,6 +13,8 @@ const NAV = [
 ];
 
 export default function Layout() {
+  const { user, role, logout } = useAuth();
+
   return (
     <div className="app">
       <header className="topbar">
@@ -20,26 +23,43 @@ export default function Layout() {
           <span className="brand-name">MOD&nbsp;PACKAGE</span>
           <span className="brand-sub">technical order builder</span>
         </div>
-        <nav className="nav" aria-label="Sections">
-          {NAV.map((item) =>
-            item.ready ? (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  'nav-link' + (isActive ? ' is-active' : '')
-                }
-              >
-                {item.label}
-              </NavLink>
-            ) : (
-              <span key={item.to} className="nav-link is-pending" title="Coming soon">
-                {item.label}
-              </span>
-            )
-          )}
-        </nav>
+
+        <div className="topbar-right">
+          <nav className="nav" aria-label="Sections">
+            {NAV.map((item) =>
+              item.ready ? (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    'nav-link' + (isActive ? ' is-active' : '')
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ) : (
+                <span
+                  key={item.to}
+                  className="nav-link is-pending"
+                  title="Coming soon"
+                >
+                  {item.label}
+                </span>
+              )
+            )}
+          </nav>
+
+          <div className="user-chip">
+            <span className="user-email" title={user?.email}>
+              {user?.email}
+            </span>
+            <span className={'role-badge role-' + role}>{role}</span>
+            <button className="signout" onClick={logout} title="Sign out">
+              ⏻
+            </button>
+          </div>
+        </div>
       </header>
 
       <main className="content">
@@ -48,7 +68,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.1 · foundation</span>
+        <span className="footer-build">v0.2 · accounts</span>
       </footer>
     </div>
   );

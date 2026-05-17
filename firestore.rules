@@ -1,17 +1,44 @@
 rules_version = '2';
 
 // -------------------------------------------------------------------
-// DEVELOPMENT RULES — these allow anyone to read and write everything.
-// That is fine while building and testing with sample data, but it MUST
-// be replaced with sign-in-based rules before any real data goes in.
-// Locking this down with Firebase Auth is the next step after this
-// foundation (see README.md > What's next).
+// Access rules.
+//   - You must be signed in AND have a userRoles document to read.
+//   - Only role 'admin' can create / edit / delete.
+// Manage people by adding documents to the `userRoles` collection,
+// id = the person's email (lowercase), with a field `role` of
+// 'admin' or 'viewer'. The first admin doc is created by hand in the
+// Firebase console (see README.md).
 // -------------------------------------------------------------------
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // A signed-in person counts as a user only if they have a role doc.
+    function isUser() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/userRoles/$(request.auth.token.email));
+    }
+
+    function isAdmin() {
+      return isUser() &&
+        get(/databases/$(database)/documents/userRoles/$(request.auth.token.email)).data.role == 'admin';
+    }
+
+    // Role docs: any signed-in person may read (the app reads its own role
+    // to find out what it can do); only admins may hand out or change roles.
+    match /userRoles/{email} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // All app data: authorised users read, admins write.
     match /{document=**} {
-      allow read, write: if true;
+      allow read: if isUser();
+      allow write: if isAdmin();
     }
   }
 }
