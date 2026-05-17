@@ -9,11 +9,14 @@ import {
   query,
   orderBy,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
 import { wouldCreateCycle } from '../lib/materials';
+import { chunk } from '../lib/batch';
+import BatchInput from '../components/BatchInput';
 
 export default function MaterialsPage() {
   const { isAdmin } = useAuth();
@@ -21,6 +24,7 @@ export default function MaterialsPage() {
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [expanded, setExpanded] = useState(() => new Set());
 
   // Add form
   const [partNumber, setPartNumber] = useState('');
@@ -28,19 +32,15 @@ export default function MaterialsPage() {
   const [isKit, setIsKit] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Which kit rows are expanded
-  const [expanded, setExpanded] = useState(() => new Set());
-
-  // Live list of every material
   useEffect(() => {
     const q = query(
       collection(db, COLLECTIONS.MATERIAL),
       orderBy('partNumber')
     );
-    return onSnapshot(
+    const unsubscribe = onSnapshot(
       q,
-      (snap) => {
-        setMaterials(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      (snapshot) => {
+        setMaterials(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
         setLoading(false);
       },
       (err) => {
@@ -48,20 +48,20 @@ export default function MaterialsPage() {
         setLoading(false);
       }
     );
+    return unsubscribe;
   }, []);
 
-  // Fast lookup by id — needed to resolve component references into a tree.
+  // id -> material, for walking kit trees without extra database reads.
   const byId = useMemo(() => {
-    const map = new Map();
-    for (const m of materials) map.set(m.id, m);
-    return map;
+    const m = new Map();
+    for (const x of materials) m.set(x.id, x);
+    return m;
   }, [materials]);
 
   async function handleAdd(event) {
     event.preventDefault();
     const pn = partNumber.trim();
     if (!pn) return;
-    // Part numbers identify a material — don't allow an exact duplicate.
     if (materials.some((m) => m.partNumber.toLowerCase() === pn.toLowerCase())) {
       setError(`A material with part number "${pn}" already exists.`);
       return;
@@ -86,17 +86,44 @@ export default function MaterialsPage() {
     }
   }
 
+  // Bulk add creates plain parts (isKit false). Kits are composed one at a
+  // time, since their contents need picking. Commits in chunks of 450.
+  async function importMaterials(rows) {
+    const existing = new Set(materials.map((m) => m.partNumber.toLowerCase()));
+    const toAdd = [];
+    for (const row of rows) {
+      const pn = (row.partNumber || '').trim();
+      if (!pn || existing.has(pn.toLowerCase())) continue;
+      existing.add(pn.toLowerCase());
+      toAdd.push({
+        partNumber: pn,
+        description: (row.description || '').trim(),
+        isKit: false,
+        components: [],
+        createdAt: serverTimestamp(),
+      });
+    }
+    for (const group of chunk(toAdd, 450)) {
+      const batch = writeBatch(db);
+      for (const data of group) {
+        batch.set(doc(collection(db, COLLECTIONS.MATERIAL)), data);
+      }
+      await batch.commit();
+    }
+  }
+
   async function handleDelete(material) {
-    const usedIn = materials.filter(
-      (m) =>
-        m.isKit &&
-        (m.components || []).some((c) => c.materialId === material.id)
-    );
-    const message = usedIn.length
-      ? `"${material.partNumber}" is used in ${usedIn.length} kit(s). ` +
-        `Deleting it will leave broken references. Delete anyway?`
-      : `Delete material "${material.partNumber}"?`;
-    if (!window.confirm(message)) return;
+    const uses = materials.filter(
+      (x) =>
+        x.isKit &&
+        Array.isArray(x.components) &&
+        x.components.some((c) => c.materialId === material.id)
+    ).length;
+    const warn =
+      uses > 0
+        ? `\n\nWarning: ${material.partNumber} is a component of ${uses} kit(s); they will show it as missing.`
+        : '';
+    if (!window.confirm(`Delete material ${material.partNumber}?${warn}`)) return;
     setError(null);
     try {
       await deleteDoc(doc(db, COLLECTIONS.MATERIAL, material.id));
@@ -115,20 +142,29 @@ export default function MaterialsPage() {
   }
 
   async function addComponent(kit, materialId, qty) {
-    const next = [...(kit.components || []), { materialId, qty }];
+    const components = Array.isArray(kit.components) ? kit.components : [];
     await updateDoc(doc(db, COLLECTIONS.MATERIAL, kit.id), {
-      components: next,
+      components: [...components, { materialId, qty }],
     });
   }
 
   async function removeComponent(kit, index) {
-    const next = (kit.components || []).filter((_, i) => i !== index);
+    const components = Array.isArray(kit.components) ? kit.components : [];
     await updateDoc(doc(db, COLLECTIONS.MATERIAL, kit.id), {
-      components: next,
+      components: components.filter((_, i) => i !== index),
     });
   }
 
-  const colSpan = isAdmin ? 5 : 4;
+  async function changeComponentQty(kit, index, value) {
+    const n = Number(value);
+    const components = Array.isArray(kit.components) ? kit.components : [];
+    if (!(n > 0) || !components[index] || components[index].qty === n) return;
+    await updateDoc(doc(db, COLLECTIONS.MATERIAL, kit.id), {
+      components: components.map((c, i) => (i === index ? { ...c, qty: n } : c)),
+    });
+  }
+
+  const colSpan = isAdmin ? 6 : 5;
 
   return (
     <div className="page">
@@ -136,8 +172,8 @@ export default function MaterialsPage() {
         <p className="eyebrow">Entity</p>
         <h1>Materials</h1>
         <p className="lede">
-          Parts and kits. A kit contains other materials — and those may be
-          kits too, so a kit can nest several levels deep.
+          Parts and kits. A kit contains other materials — and a kit may
+          contain other kits, nested as deep as needed.
         </p>
       </div>
 
@@ -150,7 +186,7 @@ export default function MaterialsPage() {
               <input
                 id="pn"
                 className="input mono"
-                placeholder="ABC-12345"
+                placeholder="PN-10245"
                 value={partNumber}
                 onChange={(e) => setPartNumber(e.target.value)}
                 autoComplete="off"
@@ -161,7 +197,7 @@ export default function MaterialsPage() {
               <input
                 id="desc"
                 className="input"
-                placeholder="Bracket assembly, LH"
+                placeholder="Bracket, lower fairing"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 autoComplete="off"
@@ -173,13 +209,31 @@ export default function MaterialsPage() {
                 checked={isKit}
                 onChange={(e) => setIsKit(e.target.checked)}
               />
-              <span>This is a kit</span>
+              This material is a kit
             </label>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? 'Saving…' : 'Add material'}
             </button>
           </form>
           {error && <p className="notice notice-error">{error}</p>}
+
+          <BatchInput
+            noun="materials"
+            onImport={importMaterials}
+            fields={[
+              { key: 'partNumber', label: 'Part number', required: true },
+              { key: 'description', label: 'Description' },
+            ]}
+            validateRow={(r) =>
+              materials.some(
+                (m) =>
+                  m.partNumber.toLowerCase() ===
+                  (r.partNumber || '').trim().toLowerCase()
+              )
+                ? 'already exists'
+                : null
+            }
+          />
         </section>
       )}
 
@@ -195,7 +249,7 @@ export default function MaterialsPage() {
           <p className="notice">
             No materials yet.
             {isAdmin
-              ? ' Add the first one with the form above.'
+              ? ' Add one above, or bulk add a list.'
               : ' An admin can add the first one.'}
           </p>
         ) : (
@@ -206,13 +260,16 @@ export default function MaterialsPage() {
                 <th>Part number</th>
                 <th>Description</th>
                 <th>Type</th>
+                <th>Contents</th>
                 {isAdmin && <th className="col-action" />}
               </tr>
             </thead>
             <tbody>
               {materials.map((m) => {
-                const componentCount = (m.components || []).length;
                 const isOpen = expanded.has(m.id);
+                const compCount = Array.isArray(m.components)
+                  ? m.components.length
+                  : 0;
                 return (
                   <Fragment key={m.id}>
                     <tr>
@@ -233,12 +290,15 @@ export default function MaterialsPage() {
                       </td>
                       <td>
                         {m.isKit ? (
-                          <span className="tag tag-kit">
-                            kit · {componentCount}
-                          </span>
+                          <span className="tag tag-kit">kit</span>
                         ) : (
                           <span className="tag tag-part">part</span>
                         )}
+                      </td>
+                      <td className="dim">
+                        {m.isKit
+                          ? `${compCount} component${compCount === 1 ? '' : 's'}`
+                          : '—'}
                       </td>
                       {isAdmin && (
                         <td className="col-action">
@@ -256,11 +316,12 @@ export default function MaterialsPage() {
                         <td colSpan={colSpan}>
                           <KitDetail
                             kit={m}
-                            byId={byId}
                             materials={materials}
+                            byId={byId}
                             isAdmin={isAdmin}
                             onAddComponent={addComponent}
                             onRemoveComponent={removeComponent}
+                            onQtyChange={changeComponentQty}
                           />
                         </td>
                       </tr>
@@ -281,114 +342,110 @@ export default function MaterialsPage() {
   );
 }
 
-// ----- the expanded view for one kit -----
+// ----- expanded view for one kit: contents tree + component editor -----
 
 function KitDetail({
   kit,
-  byId,
   materials,
+  byId,
   isAdmin,
   onAddComponent,
   onRemoveComponent,
+  onQtyChange,
 }) {
-  const [selectedId, setSelectedId] = useState('');
+  const [pick, setPick] = useState('');
   const [qty, setQty] = useState('1');
-  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const components = Array.isArray(kit.components) ? kit.components : [];
 
-  const components = kit.components || [];
-
-  // Materials that can be added: not the kit itself, not already in it, and
-  // not anything that would close a loop.
-  const alreadyIn = new Set(components.map((c) => c.materialId));
+  // Materials that can be added: not already a component, and would not
+  // create a loop (which also rules out the kit itself).
   const addable = materials.filter(
     (m) =>
-      m.id !== kit.id &&
-      !alreadyIn.has(m.id) &&
+      !components.some((c) => c.materialId === m.id) &&
       !wouldCreateCycle(kit.id, m.id, byId)
   );
 
   async function handleAdd(event) {
     event.preventDefault();
-    if (!selectedId) return;
+    if (!pick) return;
     const n = Number(qty);
     if (!(n > 0)) {
       setErr('Quantity must be greater than zero.');
       return;
     }
-    setBusy(true);
     setErr(null);
     try {
-      await onAddComponent(kit, selectedId, n);
-      setSelectedId('');
+      await onAddComponent(kit, pick, n);
+      setPick('');
       setQty('1');
     } catch (e) {
       setErr(e.message);
-    } finally {
-      setBusy(false);
     }
   }
 
   return (
-    <div className="kit-detail">
-      <p className="kit-detail-title">Contents of {kit.partNumber}</p>
+    <div className="detail-panel">
+      <div className="detail-section">
+        <p className="detail-section-title">Contents of {kit.partNumber}</p>
 
-      {components.length === 0 ? (
-        <p className="kit-empty">This kit is empty.</p>
-      ) : (
-        <ComponentTree
-          components={components}
-          byId={byId}
-          seen={new Set([kit.id])}
-          onRemove={isAdmin ? (index) => onRemoveComponent(kit, index) : null}
-        />
-      )}
-
-      {isAdmin && (
-        <form className="kit-add" onSubmit={handleAdd}>
-          <select
-            className="input select"
-            value={selectedId}
-            onChange={(e) => setSelectedId(e.target.value)}
-          >
-            <option value="">Add a material…</option>
-            {addable.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.partNumber}
-                {m.description ? ` — ${m.description}` : ''}
-                {m.isKit ? ' [kit]' : ''}
-              </option>
-            ))}
-          </select>
-          <input
-            className="input qty-input"
-            type="number"
-            min="0"
-            step="any"
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-            aria-label="Quantity"
+        {components.length === 0 ? (
+          <p className="kit-empty">No components yet.</p>
+        ) : (
+          <ComponentTree
+            components={components}
+            byId={byId}
+            seen={new Set([kit.id])}
+            onRemove={isAdmin ? (index) => onRemoveComponent(kit, index) : null}
+            onQtyChange={
+              isAdmin ? (index, value) => onQtyChange(kit, index, value) : null
+            }
           />
-          <button
-            type="submit"
-            className="btn btn-primary btn-sm"
-            disabled={busy || !selectedId}
-          >
-            Add
-          </button>
-          {err && <span className="kit-add-err">{err}</span>}
-        </form>
-      )}
+        )}
+
+        {isAdmin && (
+          <form className="link-add" onSubmit={handleAdd}>
+            <select
+              className="input select"
+              value={pick}
+              onChange={(e) => setPick(e.target.value)}
+            >
+              <option value="">Add a component…</option>
+              {addable.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.partNumber}
+                  {m.description ? ` — ${m.description}` : ''}
+                  {m.isKit ? ' [kit]' : ''}
+                </option>
+              ))}
+            </select>
+            <input
+              className="input qty-input"
+              type="number"
+              min="0"
+              step="any"
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+              aria-label="Quantity"
+            />
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={!pick}
+            >
+              Add
+            </button>
+            {err && <span className="kit-add-err">{err}</span>}
+          </form>
+        )}
+      </div>
     </div>
   );
 }
 
-// ----- recursive tree of components -----
-// `onRemove` is only passed for the top level, so only a kit's direct
-// components get a remove button. Deeper materials are edited via their
-// own row in the catalogue.
+// ----- recursive kit tree. Editable quantities only at the top level -----
 
-function ComponentTree({ components, byId, seen, onRemove }) {
+function ComponentTree({ components, byId, seen, onRemove, onQtyChange }) {
   return (
     <ul className="kit-tree">
       {components.map((component, index) => {
@@ -397,17 +454,19 @@ function ComponentTree({ components, byId, seen, onRemove }) {
         if (!material) {
           return (
             <li key={index} className="kit-node">
-              <span className="kit-qty">{component.qty}×</span>
-              <span className="dim">missing material</span>
-              {onRemove && (
-                <button
-                  className="kit-remove"
-                  onClick={() => onRemove(index)}
-                  aria-label="Remove"
-                >
-                  ×
-                </button>
-              )}
+              <div className="kit-node-row">
+                <span className="kit-qty">{component.qty}×</span>
+                <span className="mono strong">(missing material)</span>
+                {onRemove && (
+                  <button
+                    className="kit-remove"
+                    onClick={() => onRemove(index)}
+                    aria-label="Remove"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
             </li>
           );
         }
@@ -415,12 +474,27 @@ function ComponentTree({ components, byId, seen, onRemove }) {
         const isCycle = seen.has(material.id);
         const childSeen = new Set(seen);
         childSeen.add(material.id);
-        const childComponents = material.components || [];
+        const childComponents = Array.isArray(material.components)
+          ? material.components
+          : [];
 
         return (
-          <li key={material.id + '-' + index} className="kit-node">
+          <li key={index} className="kit-node">
             <div className="kit-node-row">
-              <span className="kit-qty">{component.qty}×</span>
+              {onQtyChange ? (
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  className="input qty-input qty-inline"
+                  defaultValue={component.qty}
+                  key={'q' + component.qty}
+                  onBlur={(e) => onQtyChange(index, e.target.value)}
+                  aria-label="Quantity"
+                />
+              ) : (
+                <span className="kit-qty">{component.qty}×</span>
+              )}
               <span className="mono strong">{material.partNumber}</span>
               {material.description && (
                 <span className="kit-desc">{material.description}</span>
@@ -445,6 +519,7 @@ function ComponentTree({ components, byId, seen, onRemove }) {
                 byId={byId}
                 seen={childSeen}
                 onRemove={null}
+                onQtyChange={null}
               />
             )}
           </li>

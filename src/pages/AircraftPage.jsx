@@ -8,10 +8,13 @@ import {
   query,
   orderBy,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
+import { chunk } from '../lib/batch';
+import BatchInput from '../components/BatchInput';
 
 // A starter list of fleet types — free text is still allowed.
 const FLEET_TYPES = ['777-200', '777-300', '787-8', '787-9', '787-10', 'A320', 'A350-1000'];
@@ -53,6 +56,10 @@ export default function AircraftPage() {
     event.preventDefault();
     const reg = registration.trim().toUpperCase();
     if (!reg) return;
+    if (aircraft.some((a) => a.registration.toUpperCase() === reg)) {
+      setError(`Aircraft ${reg} already exists.`);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -67,6 +74,29 @@ export default function AircraftPage() {
       setError(err.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Bulk add — commits in chunks (Firestore caps a batch at 500 writes).
+  async function importAircraft(rows) {
+    const existing = new Set(aircraft.map((a) => a.registration.toUpperCase()));
+    const toAdd = [];
+    for (const row of rows) {
+      const reg = (row.registration || '').trim().toUpperCase();
+      if (!reg || existing.has(reg)) continue;
+      existing.add(reg);
+      toAdd.push({
+        registration: reg,
+        fleetType: (row.fleetType || '').trim(),
+        createdAt: serverTimestamp(),
+      });
+    }
+    for (const group of chunk(toAdd, 450)) {
+      const batch = writeBatch(db);
+      for (const data of group) {
+        batch.set(doc(collection(db, COLLECTIONS.AIRCRAFT)), data);
+      }
+      await batch.commit();
     }
   }
 
@@ -129,6 +159,24 @@ export default function AircraftPage() {
             </button>
           </form>
           {error && <p className="notice notice-error">{error}</p>}
+
+          <BatchInput
+            noun="aircraft"
+            onImport={importAircraft}
+            fields={[
+              { key: 'registration', label: 'Registration', required: true },
+              { key: 'fleetType', label: 'Fleet type' },
+            ]}
+            validateRow={(r) =>
+              aircraft.some(
+                (a) =>
+                  a.registration.toUpperCase() ===
+                  (r.registration || '').trim().toUpperCase()
+              )
+                ? 'already exists'
+                : null
+            }
+          />
         </section>
       )}
 
@@ -144,7 +192,7 @@ export default function AircraftPage() {
           <p className="notice">
             No aircraft yet.
             {isAdmin
-              ? ' Add the first one with the form above.'
+              ? ' Add one above, or bulk add a list.'
               : ' An admin can add the first one.'}
           </p>
         ) : (

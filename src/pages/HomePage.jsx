@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 const ENTITIES = [
   { name: 'Aircraft', status: 'ready', note: 'Registrations and fleet types.' },
   { name: 'Materials', status: 'ready', note: 'Parts and kits (kits may nest).' },
-  { name: 'Drawings', status: 'planned', note: 'Documents that reference each other.' },
+  { name: 'Drawings', status: 'ready', note: 'Documents that reference each other.' },
   { name: 'Service Bulletins', status: 'planned', note: 'Work instructions and configs.' },
   { name: 'SB Configs', status: 'planned', note: 'Aircraft groupings per bulletin.' },
   { name: 'Technical Orders', status: 'planned', note: 'The deliverable, built per config.' },

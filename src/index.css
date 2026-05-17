@@ -778,3 +778,157 @@ a {
   font-size: 11px;
   color: var(--hazard);
 }
+
+/* ---------- bulk add ---------- */
+
+.batch-bar {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.batch-done {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ok);
+}
+
+.batch-panel {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+
+.batch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.batch-title {
+  font-size: 14px;
+  margin: 0;
+}
+
+.batch-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.batch-textarea {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 10px;
+  resize: vertical;
+}
+
+.batch-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.batch-preview {
+  margin: 12px 0;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.batch-table {
+  font-size: 13px;
+}
+
+.batch-table th,
+.batch-table td {
+  padding: 6px 10px;
+}
+
+.batch-table tr.batch-bad td {
+  background: #faece7;
+}
+
+.batch-status-ok {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ok);
+}
+
+.batch-status-bad {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hazard);
+}
+
+/* ---------- detail panels (kits & drawings) ---------- */
+
+.detail-panel {
+  padding: 16px 18px 18px;
+  border-left: 3px solid var(--accent);
+}
+
+.detail-section {
+  margin-bottom: 18px;
+}
+
+.detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.detail-section-title {
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* linked-item lists (drawing materials, drawing aircraft) */
+.link-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+
+.link-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.link-row:last-child {
+  border-bottom: none;
+}
+
+.link-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.field-rev {
+  min-width: 80px;
+}
+
+.qty-inline {
+  width: 64px;
+}
