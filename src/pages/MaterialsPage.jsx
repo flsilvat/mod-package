@@ -17,6 +17,7 @@ import { useAuth } from '../lib/auth';
 import { wouldCreateCycle } from '../lib/materials';
 import { chunk } from '../lib/batch';
 import BatchInput from '../components/BatchInput';
+import FilterBar from '../components/FilterBar';
 
 export default function MaterialsPage() {
   const { isAdmin } = useAuth();
@@ -31,6 +32,7 @@ export default function MaterialsPage() {
   const [description, setDescription] = useState('');
   const [isKit, setIsKit] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState('');
 
   useEffect(() => {
     const q = query(
@@ -57,6 +59,17 @@ export default function MaterialsPage() {
     for (const x of materials) m.set(x.id, x);
     return m;
   }, [materials]);
+
+  // Quick filter — matches part number or description.
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return materials;
+    return materials.filter(
+      (m) =>
+        m.partNumber.toLowerCase().includes(q) ||
+        (m.description || '').toLowerCase().includes(q)
+    );
+  }, [materials, filter]);
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -241,6 +254,13 @@ export default function MaterialsPage() {
         <div className="panel-titlebar">
           <h2 className="panel-title">Catalogue</h2>
           <span className="count">{materials.length}</span>
+          <FilterBar
+            value={filter}
+            onChange={setFilter}
+            placeholder="Filter materials…"
+            count={filtered.length}
+            total={materials.length}
+          />
         </div>
 
         {loading ? (
@@ -252,6 +272,8 @@ export default function MaterialsPage() {
               ? ' Add one above, or bulk add a list.'
               : ' An admin can add the first one.'}
           </p>
+        ) : filtered.length === 0 ? (
+          <p className="notice">No materials match the filter.</p>
         ) : (
           <table className="table">
             <thead>
@@ -265,7 +287,7 @@ export default function MaterialsPage() {
               </tr>
             </thead>
             <tbody>
-              {materials.map((m) => {
+              {filtered.map((m) => {
                 const isOpen = expanded.has(m.id);
                 const compCount = Array.isArray(m.components)
                   ? m.components.length

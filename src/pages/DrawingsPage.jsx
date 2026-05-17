@@ -15,7 +15,9 @@ import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
 import { chunk } from '../lib/batch';
+import { wouldRefCycle } from '../lib/drawings';
 import BatchInput from '../components/BatchInput';
+import FilterBar from '../components/FilterBar';
 
 export default function DrawingsPage() {
   const { isAdmin } = useAuth();
@@ -33,6 +35,7 @@ export default function DrawingsPage() {
   const [saving, setSaving] = useState(false);
 
   const [expanded, setExpanded] = useState(() => new Set());
+  const [filter, setFilter] = useState('');
 
   // Live data — drawings, plus materials and aircraft for the link pickers.
   useEffect(() => {
@@ -78,6 +81,24 @@ export default function DrawingsPage() {
     for (const x of aircraft) m.set(x.id, x);
     return m;
   }, [aircraft]);
+
+  const drawingById = useMemo(() => {
+    const m = new Map();
+    for (const x of drawings) m.set(x.id, x);
+    return m;
+  }, [drawings]);
+
+  // Quick filter — matches document number, rev or title.
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return drawings;
+    return drawings.filter(
+      (d) =>
+        d.docNumber.toLowerCase().includes(q) ||
+        (d.rev || '').toLowerCase().includes(q) ||
+        (d.title || '').toLowerCase().includes(q)
+    );
+  }, [drawings, filter]);
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -162,8 +183,9 @@ export default function DrawingsPage() {
         <p className="eyebrow">Entity</p>
         <h1>Drawings</h1>
         <p className="lede">
-          Drawing documents. Each one lists the materials it calls out (with
-          quantities) and the aircraft it applies to.
+          Drawing documents. Each one lists the materials it calls out, the
+          aircraft it applies to, and the other drawings it references — and
+          those references can nest.
         </p>
       </div>
 
@@ -226,6 +248,13 @@ export default function DrawingsPage() {
         <div className="panel-titlebar">
           <h2 className="panel-title">Drawings</h2>
           <span className="count">{drawings.length}</span>
+          <FilterBar
+            value={filter}
+            onChange={setFilter}
+            placeholder="Filter drawings…"
+            count={filtered.length}
+            total={drawings.length}
+          />
         </div>
 
         {loading ? (
@@ -237,6 +266,8 @@ export default function DrawingsPage() {
               ? ' Add one above, or bulk add a list.'
               : ' An admin can add the first one.'}
           </p>
+        ) : filtered.length === 0 ? (
+          <p className="notice">No drawings match the filter.</p>
         ) : (
           <table className="table">
             <thead>
@@ -250,9 +281,10 @@ export default function DrawingsPage() {
               </tr>
             </thead>
             <tbody>
-              {drawings.map((d) => {
+              {filtered.map((d) => {
                 const matCount = (d.materials || []).length;
                 const acCount = (d.aircraftIds || []).length;
+                const refCount = (d.refDrawingIds || []).length;
                 const isOpen = expanded.has(d.id);
                 return (
                   <Fragment key={d.id}>
@@ -273,7 +305,8 @@ export default function DrawingsPage() {
                       <td>{d.title || <span className="dim">—</span>}</td>
                       <td className="dim">
                         {matCount} material{matCount === 1 ? '' : 's'} ·{' '}
-                        {acCount} aircraft
+                        {acCount} aircraft · {refCount} ref
+                        {refCount === 1 ? '' : 's'}
                       </td>
                       {isAdmin && (
                         <td className="col-action">
@@ -291,11 +324,13 @@ export default function DrawingsPage() {
                         <td colSpan={colSpan}>
                           <DrawingDetail
                             drawing={d}
+                            drawings={drawings}
                             materials={materials}
                             aircraft={aircraft}
                             materialById={materialById}
                             materialByPN={materialByPN}
                             aircraftById={aircraftById}
+                            drawingById={drawingById}
                             isAdmin={isAdmin}
                           />
                         </td>
@@ -317,20 +352,23 @@ export default function DrawingsPage() {
   );
 }
 
-// ----- expanded view for one drawing: materials + aircraft -----
+// ----- expanded view: materials, referenced drawings, aircraft -----
 
 function DrawingDetail({
   drawing,
+  drawings,
   materials,
   aircraft,
   materialById,
   materialByPN,
   aircraftById,
+  drawingById,
   isAdmin,
 }) {
   const drawingRef = doc(db, COLLECTIONS.DRAWING, drawing.id);
   const matLinks = drawing.materials || [];
   const acLinks = drawing.aircraftIds || [];
+  const refIds = drawing.refDrawingIds || [];
 
   // ----- materials -----
   const [matPick, setMatPick] = useState('');
@@ -390,6 +428,31 @@ function DrawingDetail({
     if (additions.length) {
       await updateDoc(drawingRef, { materials: [...matLinks, ...additions] });
     }
+  }
+
+  // ----- referenced drawings -----
+  const [refPick, setRefPick] = useState('');
+
+  // Other drawings that can be referenced: not this one, not already
+  // referenced, and not one that would close a loop.
+  const addableRefs = drawings.filter(
+    (d) =>
+      d.id !== drawing.id &&
+      !refIds.includes(d.id) &&
+      !wouldRefCycle(drawing.id, d.id, drawingById)
+  );
+
+  async function addRef(event) {
+    event.preventDefault();
+    if (!refPick) return;
+    await updateDoc(drawingRef, { refDrawingIds: [...refIds, refPick] });
+    setRefPick('');
+  }
+
+  async function removeRef(id) {
+    await updateDoc(drawingRef, {
+      refDrawingIds: refIds.filter((x) => x !== id),
+    });
   }
 
   // ----- aircraft -----
@@ -520,6 +583,50 @@ function DrawingDetail({
         )}
       </div>
 
+      {/* ---- drawings referenced by this drawing ---- */}
+      <div className="detail-section">
+        <p className="detail-section-title">
+          Drawings referenced by {drawing.docNumber}
+        </p>
+
+        {refIds.length === 0 ? (
+          <p className="kit-empty">No referenced drawings yet.</p>
+        ) : (
+          <DrawingRefTree
+            refIds={refIds}
+            drawingById={drawingById}
+            seen={new Set([drawing.id])}
+            onRemove={isAdmin ? removeRef : null}
+          />
+        )}
+
+        {isAdmin && (
+          <form className="link-add" onSubmit={addRef}>
+            <select
+              className="input select"
+              value={refPick}
+              onChange={(e) => setRefPick(e.target.value)}
+            >
+              <option value="">Reference a drawing…</option>
+              {addableRefs.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.docNumber}
+                  {d.rev ? ` rev ${d.rev}` : ''}
+                  {d.title ? ` — ${d.title}` : ''}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={!refPick}
+            >
+              Add
+            </button>
+          </form>
+        )}
+      </div>
+
       {/* ---- aircraft this drawing applies to ---- */}
       <div className="detail-section">
         <p className="detail-section-title">Applies to aircraft</p>
@@ -579,5 +686,73 @@ function DrawingDetail({
         )}
       </div>
     </div>
+  );
+}
+
+// ----- recursive tree of referenced drawings -----
+
+function DrawingRefTree({ refIds, drawingById, seen, onRemove }) {
+  return (
+    <ul className="kit-tree">
+      {refIds.map((refId, index) => {
+        const d = drawingById.get(refId);
+
+        if (!d) {
+          return (
+            <li key={index} className="kit-node">
+              <div className="kit-node-row">
+                <span className="mono strong">(missing drawing)</span>
+                {onRemove && (
+                  <button
+                    className="kit-remove"
+                    onClick={() => onRemove(refId)}
+                    aria-label="Remove"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        }
+
+        const isCycle = seen.has(d.id);
+        const childSeen = new Set(seen);
+        childSeen.add(d.id);
+        const childRefs = Array.isArray(d.refDrawingIds)
+          ? d.refDrawingIds
+          : [];
+
+        return (
+          <li key={index} className="kit-node">
+            <div className="kit-node-row">
+              <span className="mono strong">{d.docNumber}</span>
+              {d.rev && <span className="kit-qty">rev {d.rev}</span>}
+              {d.title && <span className="kit-desc">{d.title}</span>}
+              {isCycle && (
+                <span className="cycle-flag">circular — not expanded</span>
+              )}
+              {onRemove && (
+                <button
+                  className="kit-remove"
+                  onClick={() => onRemove(refId)}
+                  aria-label="Remove"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            {!isCycle && childRefs.length > 0 && (
+              <DrawingRefTree
+                refIds={childRefs}
+                drawingById={drawingById}
+                seen={childSeen}
+                onRemove={null}
+              />
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

@@ -214,6 +214,7 @@ a {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
   margin-bottom: 14px;
 }
 
@@ -931,4 +932,37 @@ a {
 
 .qty-inline {
   width: 64px;
+}
+
+/* ---------- quick filter ---------- */
+
+.filterbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.filterbar-input {
+  font-size: 13px;
+  padding: 6px 10px;
+  min-width: 200px;
+}
+
+.filterbar-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .filterbar {
+    margin-left: 0;
+    width: 100%;
+  }
+  .filterbar-input {
+    flex: 1;
+    min-width: 0;
+  }
 }

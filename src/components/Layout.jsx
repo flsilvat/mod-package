@@ -68,7 +68,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.4 · drawings &amp; bulk add</span>
+        <span className="footer-build">v0.5 · drawing refs &amp; search</span>
       </footer>
     </div>
   );

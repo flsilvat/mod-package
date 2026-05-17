@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   collection,
   addDoc,
@@ -15,6 +15,7 @@ import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
 import { chunk } from '../lib/batch';
 import BatchInput from '../components/BatchInput';
+import FilterBar from '../components/FilterBar';
 
 // A starter list of fleet types — free text is still allowed.
 const FLEET_TYPES = ['777-200', '777-300', '787-8', '787-9', '787-10', 'A320', 'A350-1000'];
@@ -30,6 +31,7 @@ export default function AircraftPage() {
   const [registration, setRegistration] = useState('');
   const [fleetType, setFleetType] = useState('');
   const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState('');
 
   // Live subscription: the list updates by itself whenever the data changes,
   // here or on anyone else's screen. The returned function unsubscribes.
@@ -51,6 +53,17 @@ export default function AircraftPage() {
     );
     return unsubscribe;
   }, []);
+
+  // Quick filter — matches registration or fleet type.
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return aircraft;
+    return aircraft.filter(
+      (a) =>
+        a.registration.toLowerCase().includes(q) ||
+        (a.fleetType || '').toLowerCase().includes(q)
+    );
+  }, [aircraft, filter]);
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -184,6 +197,13 @@ export default function AircraftPage() {
         <div className="panel-titlebar">
           <h2 className="panel-title">Fleet</h2>
           <span className="count">{aircraft.length}</span>
+          <FilterBar
+            value={filter}
+            onChange={setFilter}
+            placeholder="Filter aircraft…"
+            count={filtered.length}
+            total={aircraft.length}
+          />
         </div>
 
         {loading ? (
@@ -195,6 +215,8 @@ export default function AircraftPage() {
               ? ' Add one above, or bulk add a list.'
               : ' An admin can add the first one.'}
           </p>
+        ) : filtered.length === 0 ? (
+          <p className="notice">No aircraft match the filter.</p>
         ) : (
           <table className="table">
             <thead>
@@ -205,7 +227,7 @@ export default function AircraftPage() {
               </tr>
             </thead>
             <tbody>
-              {aircraft.map((ac) => (
+              {filtered.map((ac) => (
                 <tr key={ac.id}>
                   <td className="mono strong">{ac.registration}</td>
                   <td>{ac.fleetType || <span className="dim">—</span>}</td>

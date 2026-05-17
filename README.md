@@ -129,10 +129,12 @@ src/
   lib/collections.js       Firestore collection names
   lib/auth.jsx             auth context — current user and role
   lib/materials.js         kit recursion + cycle-guard helpers
+  lib/drawings.js          drawing-reference recursion helpers
   lib/batch.js             bulk-input parsing helpers
   components/Layout.jsx    app shell — header, nav, user chip
   components/NoAccess.jsx  shown to signed-in users with no role
   components/BatchInput.jsx  reusable bulk-add panel
+  components/FilterBar.jsx   reusable table quick-filter
   pages/HomePage.jsx       overview
   pages/LoginPage.jsx      email / password sign-in
   pages/AircraftPage.jsx   the Aircraft entity
@@ -146,7 +148,5 @@ firestore.rules            security rules — publish these in the console
 
 ## What's next
 
-1. **Drawing-to-drawing references** — the recursive part of Drawings, held
-   back from this round; it's the same pattern as nested kits.
-2. Then Service Bulletins and their configs, the Technical Order, and the SAP
-   export.
+1. **Service Bulletins** and their configurations (SB configs).
+2. Then the Technical Order, and the SAP export.
