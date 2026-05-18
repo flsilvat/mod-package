@@ -136,6 +136,7 @@ src/
   components/BatchInput.jsx  reusable bulk-add panel
   components/FilterBar.jsx   reusable table quick-filter
   components/MultiSelect.jsx  searchable checkbox link picker
+  components/KitContents.jsx  read-only recursive kit-contents tree
   components/SBDetail.jsx    expanded Service Bulletin view
   components/GTLDetail.jsx   expanded GTL view — operations & aircraft
   pages/HomePage.jsx       overview

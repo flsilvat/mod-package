@@ -14,7 +14,7 @@ import {
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
-import { wouldCreateCycle } from '../lib/materials';
+import { collectDescendants, wouldCreateCycle } from '../lib/materials';
 import { chunk } from '../lib/batch';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
@@ -61,16 +61,51 @@ export default function MaterialsPage() {
     return m;
   }, [materials]);
 
-  // Quick filter — matches part number or description.
-  const filtered = useMemo(() => {
+  // Quick filter — matches part number or description, and is kit-aware:
+  // a hit inside a kit also surfaces the kit(s) that contain it (so you see
+  // both the part and its parent kit), and auto-expands those kits.
+  const view = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return materials;
-    return materials.filter(
-      (m) =>
-        m.partNumber.toLowerCase().includes(q) ||
-        (m.description || '').toLowerCase().includes(q)
+    if (!q) {
+      return { list: materials, matched: new Set(), autoExpand: new Set() };
+    }
+    const matched = new Set(
+      materials
+        .filter(
+          (m) =>
+            m.partNumber.toLowerCase().includes(q) ||
+            (m.description || '').toLowerCase().includes(q)
+        )
+        .map((m) => m.id)
     );
-  }, [materials, filter]);
+    // Any kit whose tree contains a matched material is shown too, and
+    // auto-expanded so the hit is visible in context.
+    const autoExpand = new Set();
+    for (const k of materials) {
+      if (!k.isKit) continue;
+      const desc = collectDescendants(k.id, byId);
+      for (const id of matched) {
+        if (id !== k.id && desc.has(id)) {
+          autoExpand.add(k.id);
+          break;
+        }
+      }
+    }
+    const visible = new Set([...matched, ...autoExpand]);
+    return {
+      list: materials.filter((m) => visible.has(m.id)),
+      matched,
+      autoExpand,
+    };
+  }, [materials, filter, byId]);
+
+  // Kits, for the expand/collapse-all control.
+  const kitIds = useMemo(
+    () => materials.filter((m) => m.isKit).map((m) => m.id),
+    [materials]
+  );
+  const allKitsOpen =
+    kitIds.length > 0 && kitIds.every((id) => expanded.has(id));
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -153,6 +188,10 @@ export default function MaterialsPage() {
       else next.add(id);
       return next;
     });
+  }
+
+  function toggleAllKits() {
+    setExpanded(allKitsOpen ? new Set() : new Set(kitIds));
   }
 
   async function addComponents(kit, ids) {
@@ -258,11 +297,16 @@ export default function MaterialsPage() {
         <div className="panel-titlebar">
           <h2 className="panel-title">Catalogue</h2>
           <span className="count">{materials.length}</span>
+          {kitIds.length > 0 && (
+            <button className="btn btn-ghost btn-sm" onClick={toggleAllKits}>
+              {allKitsOpen ? 'Collapse all kits' : 'Expand all kits'}
+            </button>
+          )}
           <FilterBar
             value={filter}
             onChange={setFilter}
             placeholder="Filter materials…"
-            count={filtered.length}
+            count={view.list.length}
             total={materials.length}
           />
         </div>
@@ -276,7 +320,7 @@ export default function MaterialsPage() {
               ? ' Add one above, or bulk add a list.'
               : ' An admin can add the first one.'}
           </p>
-        ) : filtered.length === 0 ? (
+        ) : view.list.length === 0 ? (
           <p className="notice">No materials match the filter.</p>
         ) : (
           <table className="table">
@@ -291,14 +335,16 @@ export default function MaterialsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((m) => {
-                const isOpen = expanded.has(m.id);
+              {view.list.map((m) => {
+                const isOpen =
+                  expanded.has(m.id) || view.autoExpand.has(m.id);
+                const isMatch = view.matched.has(m.id);
                 const compCount = Array.isArray(m.components)
                   ? m.components.length
                   : 0;
                 return (
                   <Fragment key={m.id}>
-                    <tr>
+                    <tr className={isMatch ? 'row-match' : ''}>
                       <td className="col-caret">
                         {m.isKit && (
                           <button
@@ -345,6 +391,7 @@ export default function MaterialsPage() {
                             materials={materials}
                             byId={byId}
                             isAdmin={isAdmin}
+                            highlightIds={view.matched}
                             onAddComponents={addComponents}
                             onRemoveComponent={removeComponent}
                             onQtyChange={changeComponentQty}
@@ -375,6 +422,7 @@ function KitDetail({
   materials,
   byId,
   isAdmin,
+  highlightIds,
   onAddComponents,
   onRemoveComponent,
   onQtyChange,
@@ -401,6 +449,7 @@ function KitDetail({
             components={components}
             byId={byId}
             seen={new Set([kit.id])}
+            highlightIds={highlightIds}
             onRemove={isAdmin ? (index) => onRemoveComponent(kit, index) : null}
             onQtyChange={
               isAdmin ? (index, value) => onQtyChange(kit, index, value) : null
@@ -426,7 +475,14 @@ function KitDetail({
 
 // ----- recursive kit tree. Editable quantities only at the top level -----
 
-function ComponentTree({ components, byId, seen, onRemove, onQtyChange }) {
+function ComponentTree({
+  components,
+  byId,
+  seen,
+  highlightIds,
+  onRemove,
+  onQtyChange,
+}) {
   return (
     <ul className="kit-tree">
       {components.map((component, index) => {
@@ -458,10 +514,11 @@ function ComponentTree({ components, byId, seen, onRemove, onQtyChange }) {
         const childComponents = Array.isArray(material.components)
           ? material.components
           : [];
+        const isMatch = highlightIds && highlightIds.has(material.id);
 
         return (
           <li key={index} className="kit-node">
-            <div className="kit-node-row">
+            <div className={'kit-node-row' + (isMatch ? ' is-match' : '')}>
               {onQtyChange ? (
                 <input
                   type="number"
@@ -499,6 +556,7 @@ function ComponentTree({ components, byId, seen, onRemove, onQtyChange }) {
                 components={childComponents}
                 byId={byId}
                 seen={childSeen}
+                highlightIds={highlightIds}
                 onRemove={null}
                 onQtyChange={null}
               />

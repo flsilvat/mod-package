@@ -131,7 +131,7 @@ export default function GTLDetail({
               <span className="op-field-label">Instruction</span>
               <textarea
                 className="op-text"
-                rows={3}
+                rows={6}
                 placeholder="The step the engineer carries out…"
                 value={opText}
                 onChange={(e) => setOpText(e.target.value)}
@@ -285,9 +285,11 @@ function OperationCard({
           {open ? '▾' : '▸'}
         </button>
         <span className="op-number">{op.opNumber}</span>
-        <span className="op-snippet">
-          {op.text || <span className="dim">(no instruction yet)</span>}
-        </span>
+        {!open && (
+          <span className="op-snippet">
+            {op.text || <span className="dim">(no instruction yet)</span>}
+          </span>
+        )}
         {op.engineerType && (
           <span className="tag tag-skill">{op.engineerType}</span>
         )}
@@ -328,7 +330,7 @@ function OperationCard({
                 <span className="op-field-label">Instruction</span>
                 <textarea
                   className="op-text"
-                  rows={4}
+                  rows={12}
                   defaultValue={op.text}
                   key={'t' + op.text}
                   onBlur={(e) => changeText(e.target.value)}

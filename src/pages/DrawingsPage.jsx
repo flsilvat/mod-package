@@ -19,6 +19,7 @@ import { wouldRefCycle } from '../lib/drawings';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
 import MultiSelect from '../components/MultiSelect';
+import KitContents from '../components/KitContents';
 
 export default function DrawingsPage() {
   const { isAdmin } = useAuth();
@@ -371,6 +372,18 @@ function DrawingDetail({
   const acLinks = drawing.aircraftIds || [];
   const refIds = drawing.refDrawingIds || [];
 
+  // Which kit-materials are expanded to show their contents.
+  const [expandedKits, setExpandedKits] = useState(() => new Set());
+
+  function toggleKit(id) {
+    setExpandedKits((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   // ----- materials -----
   const addableMaterials = materials.filter(
     (m) => !matLinks.some((l) => l.materialId === m.id)
@@ -463,41 +476,66 @@ function DrawingDetail({
           <ul className="link-list">
             {matLinks.map((link) => {
               const m = materialById.get(link.materialId);
+              const comps = Array.isArray(m?.components) ? m.components : [];
+              const isKit = !!m?.isKit && comps.length > 0;
+              const kitOpen = isKit && expandedKits.has(link.materialId);
               return (
-                <li key={link.materialId} className="link-row">
-                  {isAdmin ? (
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      className="input qty-input qty-inline"
-                      defaultValue={link.qty}
-                      key={'q' + link.qty}
-                      onBlur={(e) =>
-                        changeMaterialQty(link.materialId, e.target.value)
-                      }
-                      aria-label="Quantity"
-                    />
-                  ) : (
-                    <span className="kit-qty">{link.qty}×</span>
+                <Fragment key={link.materialId}>
+                  <li className="link-row">
+                    {isKit ? (
+                      <button
+                        className="expand-btn"
+                        onClick={() => toggleKit(link.materialId)}
+                        aria-label={kitOpen ? 'Collapse' : 'Expand'}
+                      >
+                        {kitOpen ? '▾' : '▸'}
+                      </button>
+                    ) : (
+                      <span className="link-caret-spacer" />
+                    )}
+                    {isAdmin ? (
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        className="input qty-input qty-inline"
+                        defaultValue={link.qty}
+                        key={'q' + link.qty}
+                        onBlur={(e) =>
+                          changeMaterialQty(link.materialId, e.target.value)
+                        }
+                        aria-label="Quantity"
+                      />
+                    ) : (
+                      <span className="kit-qty">{link.qty}×</span>
+                    )}
+                    <span className="mono strong">
+                      {m ? m.partNumber : '(missing material)'}
+                    </span>
+                    {m?.description && (
+                      <span className="kit-desc">{m.description}</span>
+                    )}
+                    {m?.isKit && <span className="tag tag-kit">kit</span>}
+                    {isAdmin && (
+                      <button
+                        className="kit-remove"
+                        onClick={() => removeMaterial(link.materialId)}
+                        aria-label="Remove"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </li>
+                  {kitOpen && (
+                    <li className="kit-subtree">
+                      <KitContents
+                        components={comps}
+                        byId={materialById}
+                        seen={new Set([m.id])}
+                      />
+                    </li>
                   )}
-                  <span className="mono strong">
-                    {m ? m.partNumber : '(missing material)'}
-                  </span>
-                  {m?.description && (
-                    <span className="kit-desc">{m.description}</span>
-                  )}
-                  {m?.isKit && <span className="tag tag-kit">kit</span>}
-                  {isAdmin && (
-                    <button
-                      className="kit-remove"
-                      onClick={() => removeMaterial(link.materialId)}
-                      aria-label="Remove"
-                    >
-                      ×
-                    </button>
-                  )}
-                </li>
+                </Fragment>
               );
             })}
           </ul>
@@ -573,30 +611,27 @@ function DrawingDetail({
         {acLinks.length === 0 ? (
           <p className="kit-empty">No aircraft added yet.</p>
         ) : (
-          <ul className="link-list">
+          <div className="chip-row">
             {acLinks.map((id) => {
               const a = aircraftById.get(id);
               return (
-                <li key={id} className="link-row">
-                  <span className="mono strong">
-                    {a ? a.registration : '(missing aircraft)'}
+                <span key={id} className="chip">
+                  <span className="mono">
+                    {a ? a.registration : '(missing)'}
                   </span>
-                  {a?.fleetType && (
-                    <span className="kit-desc">{a.fleetType}</span>
-                  )}
                   {isAdmin && (
                     <button
-                      className="kit-remove"
+                      className="chip-x"
                       onClick={() => removeAircraft(id)}
                       aria-label="Remove"
                     >
                       ×
                     </button>
                   )}
-                </li>
+                </span>
               );
             })}
-          </ul>
+          </div>
         )}
 
         {isAdmin && (

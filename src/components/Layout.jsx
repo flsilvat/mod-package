@@ -70,7 +70,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.8 · GTLs &amp; operations</span>
+        <span className="footer-build">v0.8.1 · kit &amp; filter refinements</span>
       </footer>
     </div>
   );

@@ -1162,7 +1162,7 @@ a {
 
 .op-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 9px;
   padding: 8px 12px;
 }
@@ -1175,13 +1175,15 @@ a {
 }
 
 .op-snippet {
-  flex: 1;
   min-width: 0;
-  font-size: 13px;
+  width: 55ch;
+  max-width: 100%;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--ink-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 .op-body {
@@ -1225,10 +1227,12 @@ a {
 }
 
 .op-text {
-  width: 100%;
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1.55;
+  width: 55ch;
+  max-width: 100%;
+  box-sizing: content-box;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--line-strong);
@@ -1245,9 +1249,17 @@ a {
 
 .op-readtext {
   white-space: pre-wrap;
-  font-size: 13px;
-  line-height: 1.55;
+  overflow-wrap: break-word;
+  width: 55ch;
+  max-width: 100%;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
   margin: 6px 0 0;
+  padding: 9px 11px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
 }
 
 .op-readline {
@@ -1262,4 +1274,29 @@ a {
 .tag-skill {
   background: #ece1c8;
   color: #6f5a23;
+}
+
+/* ---------- kit contents inside a linked-material list ---------- */
+
+.link-caret-spacer {
+  display: inline-block;
+  width: 20px;
+  flex-shrink: 0;
+}
+
+.kit-subtree {
+  padding: 2px 0 8px 28px;
+}
+
+/* ---------- filter-match highlights ---------- */
+
+.table tr.row-match td {
+  background: #dfeaf6;
+}
+
+.kit-node-row.is-match {
+  background: var(--accent-wash);
+  border-radius: 4px;
+  margin: 0 -6px;
+  padding: 3px 6px;
 }
