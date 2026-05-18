@@ -131,6 +131,7 @@ src/
   lib/materials.js         kit recursion + cycle-guard helpers
   lib/drawings.js          drawing-reference recursion helpers
   lib/batch.js             bulk-input parsing helpers
+  lib/htl.js               recursion + cycle-guard helpers
   components/Layout.jsx    app shell — header, nav, user chip
   components/NoAccess.jsx  shown to signed-in users with no role
   components/BatchInput.jsx  reusable bulk-add panel
@@ -139,6 +140,7 @@ src/
   components/KitContents.jsx  read-only recursive kit-contents tree
   components/SBDetail.jsx    expanded Service Bulletin view
   components/GTLDetail.jsx   expanded GTL view — operations & aircraft
+  components/HTLDetail.jsx   expanded HTL view
   pages/HomePage.jsx       overview
   pages/LoginPage.jsx      email / password sign-in
   pages/AircraftPage.jsx   the Aircraft entity
@@ -146,6 +148,7 @@ src/
   pages/DrawingsPage.jsx   the Drawings entity — materials & aircraft links
   pages/ServiceBulletinsPage.jsx  Service Bulletins — configs, drawings, materials
   pages/GTLsPage.jsx       the GTL entity — operations and aircraft
+  pages/HTLsPage.jsx       the HTL entity page
 SCHEMA.md                  the full data model
 firestore.rules            security rules — publish these in the console
 ```
@@ -154,5 +157,4 @@ firestore.rules            security rules — publish these in the console
 
 ## What's next
 
-1. **HTLs** — the recursive task-list tree that nests GTLs and other HTLs.
-2. Then Technical Orders + TO Parts, and the SAP export.
+1. Technical Orders + TO Parts, and the SAP export.

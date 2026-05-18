@@ -9,6 +9,7 @@ import MaterialsPage from './pages/MaterialsPage.jsx';
 import DrawingsPage from './pages/DrawingsPage.jsx';
 import ServiceBulletinsPage from './pages/ServiceBulletinsPage.jsx';
 import GTLsPage from './pages/GTLsPage.jsx';
+import HTLsPage from './pages/HTLsPage.jsx';
 
 export default function App() {
   const { user, role, loading } = useAuth();
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="drawings" element={<DrawingsPage />} />
         <Route path="service-bulletins" element={<ServiceBulletinsPage />} />
         <Route path="gtls" element={<GTLsPage />} />
+        <Route path="htls" element={<HTLsPage />} />
       </Route>
     </Routes>
   );

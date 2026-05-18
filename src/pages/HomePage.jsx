@@ -10,7 +10,7 @@ const ENTITIES = [
   { name: 'Technical Orders', status: 'planned', note: 'The deliverable, built per config.' },
   { name: 'GTLs', status: 'ready', note: 'Reusable ordered task lists.' },
   { name: 'Operations', status: 'ready', note: 'Individual SAP step text.' },
-  { name: 'HTLs', status: 'planned', note: 'The recursive task-list tree.' },
+  { name: 'HTLs', status: 'ready', note: 'The recursive task-list tree.' },
 ];
 
 export default function HomePage() {
