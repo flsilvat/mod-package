@@ -11,7 +11,7 @@ const NAV = [
   { to: '/service-bulletins', label: 'Service Bulletins', ready: true },
   { to: '/gtls', label: 'GTLs', ready: true },
   { to: '/htls', label: 'HTLs', ready: true },
-  { to: '/technical-orders', label: 'Technical Orders', ready: false },
+  { to: '/technical-orders', label: 'Technical Orders', ready: true },
 ];
 
 export default function Layout() {
@@ -70,7 +70,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.9 · HTLs</span>
+        <span className="footer-build">v0.10 · technical orders</span>
       </footer>
     </div>
   );

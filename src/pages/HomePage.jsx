@@ -7,7 +7,7 @@ const ENTITIES = [
   { name: 'Drawings', status: 'ready', note: 'Documents that reference each other.' },
   { name: 'Service Bulletins', status: 'ready', note: 'Work instructions and configs.' },
   { name: 'SB Configs', status: 'ready', note: 'Aircraft groupings per bulletin.' },
-  { name: 'Technical Orders', status: 'planned', note: 'The deliverable, built per config.' },
+  { name: 'Technical Orders', status: 'ready', note: 'The deliverable, built per config.' },
   { name: 'GTLs', status: 'ready', note: 'Reusable ordered task lists.' },
   { name: 'Operations', status: 'ready', note: 'Individual SAP step text.' },
   { name: 'HTLs', status: 'ready', note: 'The recursive task-list tree.' },
