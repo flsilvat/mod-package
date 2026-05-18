@@ -1150,3 +1150,116 @@ a {
   display: flex;
   gap: 6px;
 }
+
+/* ---------- operations (inside a GTL) ---------- */
+
+.op-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: var(--surface);
+}
+
+.op-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px;
+}
+
+.op-number {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.op-snippet {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.op-body {
+  padding: 10px 12px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.op-add {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.op-add-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.op-field {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.op-field-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+
+.op-num-input {
+  width: 96px;
+}
+
+.op-skill-input {
+  width: 140px;
+}
+
+.op-text {
+  width: 100%;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 9px 11px;
+  resize: vertical;
+}
+
+.op-text:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.op-readtext {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 6px 0 0;
+}
+
+.op-readline {
+  font-size: 13px;
+  margin: 0 0 6px;
+}
+
+.op-sub {
+  margin-top: 14px;
+}
+
+.tag-skill {
+  background: #ece1c8;
+  color: #6f5a23;
+}

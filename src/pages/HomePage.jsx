@@ -8,8 +8,9 @@ const ENTITIES = [
   { name: 'Service Bulletins', status: 'ready', note: 'Work instructions and configs.' },
   { name: 'SB Configs', status: 'ready', note: 'Aircraft groupings per bulletin.' },
   { name: 'Technical Orders', status: 'planned', note: 'The deliverable, built per config.' },
-  { name: 'HTL / GTL', status: 'planned', note: 'The reusable task-list tree.' },
-  { name: 'Operations', status: 'planned', note: 'Individual SAP step text.' },
+  { name: 'GTLs', status: 'ready', note: 'Reusable ordered task lists.' },
+  { name: 'Operations', status: 'ready', note: 'Individual SAP step text.' },
+  { name: 'HTLs', status: 'planned', note: 'The recursive task-list tree.' },
 ];
 
 export default function HomePage() {

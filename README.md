@@ -137,12 +137,14 @@ src/
   components/FilterBar.jsx   reusable table quick-filter
   components/MultiSelect.jsx  searchable checkbox link picker
   components/SBDetail.jsx    expanded Service Bulletin view
+  components/GTLDetail.jsx   expanded GTL view — operations & aircraft
   pages/HomePage.jsx       overview
   pages/LoginPage.jsx      email / password sign-in
   pages/AircraftPage.jsx   the Aircraft entity
   pages/MaterialsPage.jsx  the Materials entity — parts and kits
   pages/DrawingsPage.jsx   the Drawings entity — materials & aircraft links
   pages/ServiceBulletinsPage.jsx  Service Bulletins — configs, drawings, materials
+  pages/GTLsPage.jsx       the GTL entity — operations and aircraft
 SCHEMA.md                  the full data model
 firestore.rules            security rules — publish these in the console
 ```
@@ -151,6 +153,5 @@ firestore.rules            security rules — publish these in the console
 
 ## What's next
 
-1. **Technical Orders** — built per SB configuration, with the HTL / GTL /
-   operation task tree.
-2. Then the SAP export.
+1. **HTLs** — the recursive task-list tree that nests GTLs and other HTLs.
+2. Then Technical Orders + TO Parts, and the SAP export.
