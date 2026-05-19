@@ -149,6 +149,7 @@ src/
   pages/ServiceBulletinsPage.jsx  Service Bulletins — configs, drawings, materials
   pages/GTLsPage.jsx       the GTL entity — operations and aircraft
   pages/HTLsPage.jsx       the HTL entity page
+  pages/TOPartViewPage.jsx read-only assembled view
 SCHEMA.md                  the full data model
 firestore.rules            security rules — publish these in the console
 ```

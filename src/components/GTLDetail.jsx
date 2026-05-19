@@ -290,9 +290,17 @@ function OperationCard({
             {op.text || <span className="dim">(no instruction yet)</span>}
           </span>
         )}
-        {op.engineerType && (
-          <span className="tag tag-skill">{op.engineerType}</span>
-        )}
+        <div className="op-head-meta">
+          {op.engineerType && (
+            <span className="tag tag-skill">{op.engineerType}</span>
+          )}
+          {matLinks.length > 0 && (
+            <span className="tag tag-count">{matLinks.length}× material</span>
+          )}
+          {drawingIds.length > 0 && (
+            <span className="tag tag-count">{drawingIds.length}× dwg</span>
+          )}
+        </div>
         {isAdmin && (
           <button className="btn btn-ghost btn-sm" onClick={remove}>
             Delete

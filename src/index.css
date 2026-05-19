@@ -1167,6 +1167,15 @@ a {
   padding: 8px 12px;
 }
 
+/* right-aligned metadata group in an operation head */
+.op-head-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .op-number {
   font-family: var(--font-mono);
   font-size: 13px;
@@ -1274,6 +1283,12 @@ a {
 .tag-skill {
   background: #ece1c8;
   color: #6f5a23;
+}
+
+/* muted count pill — e.g. "3× material", "2× dwg" */
+.tag-count {
+  background: var(--line);
+  color: var(--ink-soft);
 }
 
 /* ---------- kit contents inside a linked-material list ---------- */

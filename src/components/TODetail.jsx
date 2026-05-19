@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   collection,
   addDoc,
@@ -139,6 +140,9 @@ function TOPartCard({ part, configs, htls, configById, htlById, isAdmin }) {
       <div className="config-card">
         <div className="config-card-head">
           <span className="config-name-static">{part.partLabel}</span>
+            <Link to={`/to-part/${part.id}`} className="btn btn-ghost btn-sm">
+              Open full view →
+            </Link>
         </div>
         <p className="op-readline">
           <span className="op-field-label">Covers configuration:</span>{' '}
@@ -162,10 +166,18 @@ function TOPartCard({ part, configs, htls, configById, htlById, isAdmin }) {
           onBlur={(e) => renameLabel(e.target.value)}
           aria-label="Part label"
         />
+        <Link
+          to={`/to-part/${part.id}`}
+          className="btn btn-ghost btn-sm"
+          style={{ alignSelf: 'flex-start', margin: '0 0 4px' }}
+          >
+            Open full view →
+        </Link>
         <button className="btn btn-ghost btn-sm" onClick={remove}>
           Delete
         </button>
       </div>
+      
 
       <label className="op-field">
         <span className="op-field-label">Covers configuration</span>

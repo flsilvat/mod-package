@@ -11,6 +11,7 @@ import ServiceBulletinsPage from './pages/ServiceBulletinsPage.jsx';
 import GTLsPage from './pages/GTLsPage.jsx';
 import HTLsPage from './pages/HTLsPage.jsx';
 import TechnicalOrdersPage from './pages/TechnicalOrdersPage.jsx';
+import TOPartViewPage from './pages/TOPartViewPage.jsx';
 
 export default function App() {
   const { user, role, loading } = useAuth();
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="gtls" element={<GTLsPage />} />
         <Route path="htls" element={<HTLsPage />} />
         <Route path="technical-orders" element={<TechnicalOrdersPage />} />
+        <Route path="to-part/:partId" element={<TOPartViewPage />} />
       </Route>
     </Routes>
   );
