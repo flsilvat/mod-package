@@ -13,6 +13,7 @@ import {
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
+import { useScope } from '../lib/scope';
 import { chunk } from '../lib/batch';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
@@ -20,6 +21,7 @@ import HTLDetail from '../components/HTLDetail';
 
 export default function HTLsPage() {
   const { isAdmin } = useAuth();
+  const scope = useScope();
 
   const [htls, setHtls] = useState([]);
   const [gtls, setGtls] = useState([]);
@@ -88,12 +90,18 @@ export default function HTLsPage() {
     return m;
   }, [operations]);
 
+  // HTLs inside the current scope. Empty scope = show everything.
+  const scopedHtls = useMemo(() => {
+    if (scope.htlIds === null) return htls;
+    return htls.filter((h) => scope.htlIds.has(h.id));
+  }, [htls, scope.htlIds]);
+
   // Quick filter — matches the HTL reference.
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return htls;
-    return htls.filter((h) => h.htlRef.toLowerCase().includes(q));
-  }, [htls, filter]);
+    if (!q) return scopedHtls;
+    return scopedHtls.filter((h) => h.htlRef.toLowerCase().includes(q));
+  }, [scopedHtls, filter]);
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -215,13 +223,13 @@ export default function HTLsPage() {
       <section className="panel">
         <div className="panel-titlebar">
           <h2 className="panel-title">HTLs</h2>
-          <span className="count">{htls.length}</span>
+          <span className="count">{scopedHtls.length}</span>
           <FilterBar
             value={filter}
             onChange={setFilter}
             placeholder="Filter HTLs…"
             count={filtered.length}
-            total={htls.length}
+            total={scopedHtls.length}
           />
         </div>
 

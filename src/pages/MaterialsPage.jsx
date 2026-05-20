@@ -14,6 +14,7 @@ import {
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
+import { useScope } from '../lib/scope';
 import { collectDescendants, wouldCreateCycle } from '../lib/materials';
 import { chunk } from '../lib/batch';
 import BatchInput from '../components/BatchInput';
@@ -22,6 +23,7 @@ import MultiSelect from '../components/MultiSelect';
 
 export default function MaterialsPage() {
   const { isAdmin } = useAuth();
+  const scope = useScope();
 
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -61,16 +63,23 @@ export default function MaterialsPage() {
     return m;
   }, [materials]);
 
+  // Materials inside the current scope. When the scope is empty
+  // (scope.materialIds === null), all materials are in scope.
+  const scopedMaterials = useMemo(() => {
+    if (scope.materialIds === null) return materials;
+    return materials.filter((m) => scope.materialIds.has(m.id));
+  }, [materials, scope.materialIds]);
+
   // Quick filter — matches part number or description, and is kit-aware:
   // a hit inside a kit also surfaces the kit(s) that contain it (so you see
   // both the part and its parent kit), and auto-expands those kits.
   const view = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) {
-      return { list: materials, matched: new Set(), autoExpand: new Set() };
+      return { list: scopedMaterials, matched: new Set(), autoExpand: new Set() };
     }
     const matched = new Set(
-      materials
+      scopedMaterials
         .filter(
           (m) =>
             m.partNumber.toLowerCase().includes(q) ||
@@ -81,7 +90,7 @@ export default function MaterialsPage() {
     // Any kit whose tree contains a matched material is shown too, and
     // auto-expanded so the hit is visible in context.
     const autoExpand = new Set();
-    for (const k of materials) {
+    for (const k of scopedMaterials) {
       if (!k.isKit) continue;
       const desc = collectDescendants(k.id, byId);
       for (const id of matched) {
@@ -93,16 +102,16 @@ export default function MaterialsPage() {
     }
     const visible = new Set([...matched, ...autoExpand]);
     return {
-      list: materials.filter((m) => visible.has(m.id)),
+      list: scopedMaterials.filter((m) => visible.has(m.id)),
       matched,
       autoExpand,
     };
-  }, [materials, filter, byId]);
+  }, [scopedMaterials, filter, byId]);
 
   // Kits, for the expand/collapse-all control.
   const kitIds = useMemo(
-    () => materials.filter((m) => m.isKit).map((m) => m.id),
-    [materials]
+    () => scopedMaterials.filter((m) => m.isKit).map((m) => m.id),
+    [scopedMaterials]
   );
   const allKitsOpen =
     kitIds.length > 0 && kitIds.every((id) => expanded.has(id));
@@ -296,7 +305,7 @@ export default function MaterialsPage() {
       <section className="panel">
         <div className="panel-titlebar">
           <h2 className="panel-title">Catalogue</h2>
-          <span className="count">{materials.length}</span>
+          <span className="count">{scopedMaterials.length}</span>
           {kitIds.length > 0 && (
             <button className="btn btn-ghost btn-sm" onClick={toggleAllKits}>
               {allKitsOpen ? 'Collapse all kits' : 'Expand all kits'}

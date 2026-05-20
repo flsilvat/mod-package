@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './lib/auth';
+import { ScopeProvider } from './lib/scope';
 import Layout from './components/Layout.jsx';
 import NoAccess from './components/NoAccess.jsx';
 import HomePage from './pages/HomePage.jsx';
@@ -33,18 +34,20 @@ export default function App() {
 
   // Signed in and authorised → the app. New entity pages get added here.
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<HomePage />} />
-        <Route path="aircraft" element={<AircraftPage />} />
-        <Route path="materials" element={<MaterialsPage />} />
-        <Route path="drawings" element={<DrawingsPage />} />
-        <Route path="service-bulletins" element={<ServiceBulletinsPage />} />
-        <Route path="gtls" element={<GTLsPage />} />
-        <Route path="htls" element={<HTLsPage />} />
-        <Route path="technical-orders" element={<TechnicalOrdersPage />} />
-        <Route path="to-part/:partId" element={<TOPartViewPage />} />
-      </Route>
-    </Routes>
+    <ScopeProvider>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<HomePage />} />
+          <Route path="aircraft" element={<AircraftPage />} />
+          <Route path="materials" element={<MaterialsPage />} />
+          <Route path="drawings" element={<DrawingsPage />} />
+          <Route path="service-bulletins" element={<ServiceBulletinsPage />} />
+          <Route path="gtls" element={<GTLsPage />} />
+          <Route path="htls" element={<HTLsPage />} />
+          <Route path="technical-orders" element={<TechnicalOrdersPage />} />
+          <Route path="to-part/:partId" element={<TOPartViewPage />} />
+        </Route>
+      </Routes>
+    </ScopeProvider>
   );
 }

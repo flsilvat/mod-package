@@ -14,6 +14,7 @@ import {
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
+import { useScope } from '../lib/scope';
 import { chunk } from '../lib/batch';
 import { wouldRefCycle } from '../lib/drawings';
 import BatchInput from '../components/BatchInput';
@@ -23,6 +24,7 @@ import KitContents from '../components/KitContents';
 
 export default function DrawingsPage() {
   const { isAdmin } = useAuth();
+  const scope = useScope();
 
   const [drawings, setDrawings] = useState([]);
   const [materials, setMaterials] = useState([]);
@@ -101,17 +103,23 @@ export default function DrawingsPage() {
     return m;
   }, [drawings]);
 
+  // Drawings inside the current scope. Empty scope = show everything.
+  const scopedDrawings = useMemo(() => {
+    if (scope.drawingIds === null) return drawings;
+    return drawings.filter((d) => scope.drawingIds.has(d.id));
+  }, [drawings, scope.drawingIds]);
+
   // Quick filter — matches document number, rev or title.
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return drawings;
-    return drawings.filter(
+    if (!q) return scopedDrawings;
+    return scopedDrawings.filter(
       (d) =>
         d.docNumber.toLowerCase().includes(q) ||
         (d.rev || '').toLowerCase().includes(q) ||
         (d.title || '').toLowerCase().includes(q)
     );
-  }, [drawings, filter]);
+  }, [scopedDrawings, filter]);
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -260,13 +268,13 @@ export default function DrawingsPage() {
       <section className="panel">
         <div className="panel-titlebar">
           <h2 className="panel-title">Drawings</h2>
-          <span className="count">{drawings.length}</span>
+          <span className="count">{scopedDrawings.length}</span>
           <FilterBar
             value={filter}
             onChange={setFilter}
             placeholder="Filter drawings…"
             count={filtered.length}
-            total={drawings.length}
+            total={scopedDrawings.length}
           />
         </div>
 

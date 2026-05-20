@@ -1,5 +1,17 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import ScopeBar from './ScopeBar';
+
+// Pages where the scope filter is meaningful — Materials, Drawings,
+// Service Bulletins, GTLs, HTLs. The scope bar renders just above the page
+// body on these routes.
+const SCOPED_PATHS = new Set([
+  '/materials',
+  '/drawings',
+  '/service-bulletins',
+  '/gtls',
+  '/htls',
+]);
 
 // Navigation items. As entities are built, add them here. Items marked
 // `ready: false` render as disabled placeholders so the roadmap is visible.
@@ -16,6 +28,8 @@ const NAV = [
 
 export default function Layout() {
   const { user, role, logout } = useAuth();
+  const location = useLocation();
+  const showScope = SCOPED_PATHS.has(location.pathname);
 
   return (
     <div className="app">
@@ -65,12 +79,13 @@ export default function Layout() {
       </header>
 
       <main className="content">
+        {showScope && <ScopeBar />}
         <Outlet />
       </main>
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.13 · TO Part bucket</span>
+        <span className="footer-build">v0.14 · scope filter</span>
       </footer>
     </div>
   );

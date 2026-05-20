@@ -12,6 +12,7 @@ import {
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
+import { useScope } from '../lib/scope';
 import { chunk } from '../lib/batch';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
@@ -19,6 +20,7 @@ import GTLDetail from '../components/GTLDetail';
 
 export default function GTLsPage() {
   const { isAdmin } = useAuth();
+  const scope = useScope();
 
   const [gtls, setGtls] = useState([]);
   const [operations, setOperations] = useState([]);
@@ -86,12 +88,18 @@ export default function GTLsPage() {
     return m;
   }, [aircraft]);
 
+  // GTLs inside the current scope. Empty scope = show everything.
+  const scopedGtls = useMemo(() => {
+    if (scope.gtlIds === null) return gtls;
+    return gtls.filter((g) => scope.gtlIds.has(g.id));
+  }, [gtls, scope.gtlIds]);
+
   // Quick filter — matches the GTL reference.
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return gtls;
-    return gtls.filter((g) => g.gtlRef.toLowerCase().includes(q));
-  }, [gtls, filter]);
+    if (!q) return scopedGtls;
+    return scopedGtls.filter((g) => g.gtlRef.toLowerCase().includes(q));
+  }, [scopedGtls, filter]);
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -212,13 +220,13 @@ export default function GTLsPage() {
       <section className="panel">
         <div className="panel-titlebar">
           <h2 className="panel-title">GTLs</h2>
-          <span className="count">{gtls.length}</span>
+          <span className="count">{scopedGtls.length}</span>
           <FilterBar
             value={filter}
             onChange={setFilter}
             placeholder="Filter GTLs…"
             count={filtered.length}
-            total={gtls.length}
+            total={scopedGtls.length}
           />
         </div>
 

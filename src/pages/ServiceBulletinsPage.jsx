@@ -12,6 +12,7 @@ import {
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
+import { useScope } from '../lib/scope';
 import { chunk } from '../lib/batch';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
@@ -19,6 +20,7 @@ import SBDetail from '../components/SBDetail';
 
 export default function ServiceBulletinsPage() {
   const { isAdmin } = useAuth();
+  const scope = useScope();
 
   const [sbs, setSbs] = useState([]);
   const [configs, setConfigs] = useState([]);
@@ -94,16 +96,22 @@ export default function ServiceBulletinsPage() {
     return m;
   }, [aircraft]);
 
+  // SBs inside the current scope. Empty scope = show everything.
+  const scopedSbs = useMemo(() => {
+    if (scope.sbIds === null) return sbs;
+    return sbs.filter((s) => scope.sbIds.has(s.id));
+  }, [sbs, scope.sbIds]);
+
   // Quick filter — matches SB reference or title.
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return sbs;
-    return sbs.filter(
+    if (!q) return scopedSbs;
+    return scopedSbs.filter(
       (s) =>
         s.sbRef.toLowerCase().includes(q) ||
         (s.title || '').toLowerCase().includes(q)
     );
-  }, [sbs, filter]);
+  }, [scopedSbs, filter]);
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -246,13 +254,13 @@ export default function ServiceBulletinsPage() {
       <section className="panel">
         <div className="panel-titlebar">
           <h2 className="panel-title">Bulletins</h2>
-          <span className="count">{sbs.length}</span>
+          <span className="count">{scopedSbs.length}</span>
           <FilterBar
             value={filter}
             onChange={setFilter}
             placeholder="Filter bulletins…"
             count={filtered.length}
-            total={sbs.length}
+            total={scopedSbs.length}
           />
         </div>
 
