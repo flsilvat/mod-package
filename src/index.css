@@ -1012,6 +1012,13 @@ a {
   font-size: 13px;
 }
 
+/* the computed materials bucket inside a configuration card */
+.config-bucket {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
 .chip-row {
   display: flex;
   flex-wrap: wrap;

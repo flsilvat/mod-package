@@ -48,7 +48,7 @@ Belongs to one service bulletin. Groups the aircraft a config applies to.
 
 ### `drawings` — DRAWING
 `docNumber` · `rev` · `title` · `refDrawingIds[]` (recursive) ·
-`materials[{materialId, qty}]` · `aircraftIds[]`
+`materials[{materialId, qty}]` · `sbConfigIds[]`
 
 ### `materials` — MATERIAL
 A part. If `isKit` is true, `components` lists what it contains — and any of
@@ -86,7 +86,7 @@ An admin can read and change everything; a viewer can only read.
 - SERVICE_BULLETIN has many SB_CONFIG
 - SB_CONFIG groups many AIRCRAFT (many-to-many)
 - SERVICE_BULLETIN references many DRAWING and many MATERIAL
-- DRAWING references many DRAWING (recursive), MATERIAL, AIRCRAFT
+- DRAWING references many DRAWING (recursive), MATERIAL, SB_CONFIG
 - MATERIAL contains many MATERIAL (recursive — kits)
 - TECHNICAL_ORDER built from one SERVICE_BULLETIN, split into many TO_PART
 - TO_PART covers one SB_CONFIG, uses one HTL

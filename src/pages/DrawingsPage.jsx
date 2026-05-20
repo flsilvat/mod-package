@@ -26,7 +26,8 @@ export default function DrawingsPage() {
 
   const [drawings, setDrawings] = useState([]);
   const [materials, setMaterials] = useState([]);
-  const [aircraft, setAircraft] = useState([]);
+  const [configs, setConfigs] = useState([]);
+  const [sbs, setSbs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -39,7 +40,8 @@ export default function DrawingsPage() {
   const [expanded, setExpanded] = useState(() => new Set());
   const [filter, setFilter] = useState('');
 
-  // Live data — drawings, plus materials and aircraft for the link pickers.
+  // Live data — drawings, plus materials and SB configs for the link pickers
+  // (and the bulletins, to label each config with its SB reference).
   useEffect(() => {
     const subs = [
       onSnapshot(
@@ -57,9 +59,12 @@ export default function DrawingsPage() {
         query(collection(db, COLLECTIONS.MATERIAL), orderBy('partNumber')),
         (snap) => setMaterials(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       ),
+      onSnapshot(collection(db, COLLECTIONS.SB_CONFIG), (snap) =>
+        setConfigs(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      ),
       onSnapshot(
-        query(collection(db, COLLECTIONS.AIRCRAFT), orderBy('registration')),
-        (snap) => setAircraft(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+        query(collection(db, COLLECTIONS.SERVICE_BULLETIN), orderBy('sbRef')),
+        (snap) => setSbs(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       ),
     ];
     return () => subs.forEach((unsub) => unsub());
@@ -78,11 +83,17 @@ export default function DrawingsPage() {
     return m;
   }, [materials]);
 
-  const aircraftById = useMemo(() => {
+  const configById = useMemo(() => {
     const m = new Map();
-    for (const x of aircraft) m.set(x.id, x);
+    for (const x of configs) m.set(x.id, x);
     return m;
-  }, [aircraft]);
+  }, [configs]);
+
+  const sbById = useMemo(() => {
+    const m = new Map();
+    for (const x of sbs) m.set(x.id, x);
+    return m;
+  }, [sbs]);
 
   const drawingById = useMemo(() => {
     const m = new Map();
@@ -118,7 +129,7 @@ export default function DrawingsPage() {
         rev: rev.trim(),
         title: title.trim(),
         materials: [],
-        aircraftIds: [],
+        sbConfigIds: [],
         refDrawingIds: [],
         createdAt: serverTimestamp(),
       });
@@ -144,7 +155,7 @@ export default function DrawingsPage() {
         rev: (row.rev || '').trim(),
         title: (row.title || '').trim(),
         materials: [],
-        aircraftIds: [],
+        sbConfigIds: [],
         refDrawingIds: [],
         createdAt: serverTimestamp(),
       });
@@ -185,9 +196,9 @@ export default function DrawingsPage() {
         <p className="eyebrow">Entity</p>
         <h1>Drawings</h1>
         <p className="lede">
-          Drawing documents. Each one lists the materials it calls out, the
-          aircraft it applies to, and the other drawings it references — and
-          those references can nest.
+          Drawing documents. Each one lists the materials it calls out, the SB
+          configurations it applies to, and the other drawings it references —
+          and those references can nest.
         </p>
       </div>
 
@@ -285,7 +296,7 @@ export default function DrawingsPage() {
             <tbody>
               {filtered.map((d) => {
                 const matCount = (d.materials || []).length;
-                const acCount = (d.aircraftIds || []).length;
+                const cfgCount = (d.sbConfigIds || []).length;
                 const refCount = (d.refDrawingIds || []).length;
                 const isOpen = expanded.has(d.id);
                 return (
@@ -307,8 +318,10 @@ export default function DrawingsPage() {
                       <td>{d.title || <span className="dim">—</span>}</td>
                       <td className="dim">
                         {matCount} material{matCount === 1 ? '' : 's'} ·{' '}
-                        {acCount} aircraft · {refCount} ref
-                        {refCount === 1 ? '' : 's'}
+                        {cfgCount === 0
+                          ? 'all configs'
+                          : `${cfgCount} config${cfgCount === 1 ? '' : 's'}`}{' '}
+                        · {refCount} ref{refCount === 1 ? '' : 's'}
                       </td>
                       {isAdmin && (
                         <td className="col-action">
@@ -328,10 +341,11 @@ export default function DrawingsPage() {
                             drawing={d}
                             drawings={drawings}
                             materials={materials}
-                            aircraft={aircraft}
+                            configs={configs}
                             materialById={materialById}
                             materialByPN={materialByPN}
-                            aircraftById={aircraftById}
+                            configById={configById}
+                            sbById={sbById}
                             drawingById={drawingById}
                             isAdmin={isAdmin}
                           />
@@ -354,22 +368,23 @@ export default function DrawingsPage() {
   );
 }
 
-// ----- expanded view: materials, referenced drawings, aircraft -----
+// ----- expanded view: materials, referenced drawings, SB configs -----
 
 function DrawingDetail({
   drawing,
   drawings,
   materials,
-  aircraft,
+  configs,
   materialById,
   materialByPN,
-  aircraftById,
+  configById,
+  sbById,
   drawingById,
   isAdmin,
 }) {
   const drawingRef = doc(db, COLLECTIONS.DRAWING, drawing.id);
   const matLinks = drawing.materials || [];
-  const acLinks = drawing.aircraftIds || [];
+  const cfgLinks = drawing.sbConfigIds || [];
   const refIds = drawing.refDrawingIds || [];
 
   // Which kit-materials are expanded to show their contents.
@@ -449,16 +464,20 @@ function DrawingDetail({
     });
   }
 
-  // ----- aircraft -----
-  const addableAircraft = aircraft.filter((a) => !acLinks.includes(a.id));
+  // ----- SB configurations this drawing applies to -----
+  const addableConfigs = configs.filter((c) => !cfgLinks.includes(c.id));
 
-  async function addAircrafts(ids) {
-    await updateDoc(drawingRef, { aircraftIds: [...acLinks, ...ids] });
+  function configLabel(c) {
+    return sbById.get(c.sbId)?.sbRef || '';
   }
 
-  async function removeAircraft(aircraftId) {
+  async function addConfigs(ids) {
+    await updateDoc(drawingRef, { sbConfigIds: [...cfgLinks, ...ids] });
+  }
+
+  async function removeConfig(configId) {
     await updateDoc(drawingRef, {
-      aircraftIds: acLinks.filter((id) => id !== aircraftId),
+      sbConfigIds: cfgLinks.filter((id) => id !== configId),
     });
   }
 
@@ -604,25 +623,30 @@ function DrawingDetail({
         )}
       </div>
 
-      {/* ---- aircraft this drawing applies to ---- */}
+      {/* ---- SB configurations this drawing applies to ---- */}
       <div className="detail-section">
-        <p className="detail-section-title">Applies to aircraft</p>
+        <p className="detail-section-title">Applies to SB configurations</p>
 
-        {acLinks.length === 0 ? (
-          <p className="kit-empty">No aircraft added yet.</p>
+        {cfgLinks.length === 0 ? (
+          <p className="kit-empty">
+            No configurations selected — this drawing applies to all
+            configurations of its bulletin.
+          </p>
         ) : (
           <div className="chip-row">
-            {acLinks.map((id) => {
-              const a = aircraftById.get(id);
+            {cfgLinks.map((id) => {
+              const c = configById.get(id);
+              const sbref = c ? configLabel(c) : '';
               return (
                 <span key={id} className="chip">
                   <span className="mono">
-                    {a ? a.registration : '(missing)'}
+                    {c ? c.name : '(missing config)'}
                   </span>
+                  {sbref && <span className="dim">{sbref}</span>}
                   {isAdmin && (
                     <button
                       className="chip-x"
-                      onClick={() => removeAircraft(id)}
+                      onClick={() => removeConfig(id)}
                       aria-label="Remove"
                     >
                       ×
@@ -636,12 +660,12 @@ function DrawingDetail({
 
         {isAdmin && (
           <MultiSelect
-            placeholder="Add aircraft…"
-            onAdd={addAircrafts}
-            options={addableAircraft.map((a) => ({
-              id: a.id,
-              label: a.registration,
-              sublabel: a.fleetType || '',
+            placeholder="Add SB configurations…"
+            onAdd={addConfigs}
+            options={addableConfigs.map((c) => ({
+              id: c.id,
+              label: c.name,
+              sublabel: configLabel(c),
             }))}
           />
         )}

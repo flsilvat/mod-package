@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import {
   collection,
   addDoc,
@@ -9,8 +9,10 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
+import { computeConfigBucket, kitTally } from '../lib/bucket';
 import BatchInput from './BatchInput';
 import MultiSelect from './MultiSelect';
+import KitContents from './KitContents';
 
 // ----- expanded view for one Service Bulletin -----
 
@@ -124,6 +126,12 @@ export default function SBDetail({
               config={config}
               aircraft={aircraft}
               aircraftById={aircraftById}
+              materialById={materialById}
+              bucket={computeConfigBucket(config, {
+                sb,
+                drawingById,
+                materialById,
+              })}
               isAdmin={isAdmin}
             />
           ))
@@ -280,13 +288,32 @@ export default function SBDetail({
   );
 }
 
-// ----- one configuration: a named grouping of aircraft -----
+// ----- one configuration: a named grouping of aircraft + its bucket -----
 
-function ConfigCard({ config, aircraft, aircraftById, isAdmin }) {
+function ConfigCard({
+  config,
+  aircraft,
+  aircraftById,
+  materialById,
+  bucket,
+  isAdmin,
+}) {
   const configRef = doc(db, COLLECTIONS.SB_CONFIG, config.id);
   const acIds = config.aircraftIds || [];
 
   const addableAircraft = aircraft.filter((a) => !acIds.includes(a.id));
+
+  // Which kit-materials in the bucket are expanded to show their contents.
+  const [openKits, setOpenKits] = useState(() => new Set());
+
+  function toggleKit(id) {
+    setOpenKits((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function rename(value) {
     const name = value.trim();
@@ -369,6 +396,81 @@ function ConfigCard({ config, aircraft, aircraftById, isAdmin }) {
           }))}
         />
       )}
+
+      {/* ---- computed materials bucket ---- */}
+      <div className="config-bucket">
+        <p className="detail-section-title">
+          Materials bucket
+          {bucket.length > 0 && (
+            <span className="dim">
+              {' '}
+              · {bucket.length} line{bucket.length === 1 ? '' : 's'}
+            </span>
+          )}
+        </p>
+
+        {bucket.length === 0 ? (
+          <p className="kit-empty">
+            No materials reach this configuration yet — add materials to the
+            bulletin, or applicable drawings.
+          </p>
+        ) : (
+          <ul className="link-list">
+            {bucket.map((line) => {
+              const m = materialById.get(line.materialId);
+              const comps = Array.isArray(m?.components) ? m.components : [];
+              const isKit = !!m?.isKit && comps.length > 0;
+              const kitOpen = isKit && openKits.has(line.materialId);
+              const tally = isKit
+                ? kitTally(line.materialId, materialById)
+                : null;
+              return (
+                <Fragment key={line.materialId}>
+                  <li className="link-row">
+                    {isKit ? (
+                      <button
+                        className="expand-btn"
+                        onClick={() => toggleKit(line.materialId)}
+                        aria-label={kitOpen ? 'Collapse' : 'Expand'}
+                      >
+                        {kitOpen ? '▾' : '▸'}
+                      </button>
+                    ) : (
+                      <span className="link-caret-spacer" />
+                    )}
+                    <span className="kit-qty">{line.qty}×</span>
+                    <span className="mono strong">
+                      {m ? m.partNumber : '(missing material)'}
+                    </span>
+                    {m?.description && (
+                      <span className="kit-desc">{m.description}</span>
+                    )}
+                    {m?.isKit && <span className="tag tag-kit">kit</span>}
+                    {tally && (
+                      <span className="dim">
+                        {tally.parts} part{tally.parts === 1 ? '' : 's'}
+                        {tally.subkits > 0 &&
+                          `, ${tally.subkits} subkit${
+                            tally.subkits === 1 ? '' : 's'
+                          }`}
+                      </span>
+                    )}
+                  </li>
+                  {kitOpen && (
+                    <li className="kit-subtree">
+                      <KitContents
+                        components={comps}
+                        byId={materialById}
+                        seen={new Set([m.id])}
+                      />
+                    </li>
+                  )}
+                </Fragment>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
