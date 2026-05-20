@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
+import { findKitsContaining } from '../lib/bucket';
 import MultiSelect from './MultiSelect';
 
 // ----- expanded view for one GTL: operations + applicable aircraft -----
@@ -264,6 +265,25 @@ function OperationCard({
     });
   }
 
+  // Set or clear the kit-source tag on a material line. Empty string means
+  // "loose / whole" — we strip the fromKitId field to keep the doc clean.
+  async function changeMaterialFromKit(materialId, value) {
+    const current = matLinks.find((l) => l.materialId === materialId);
+    if (!current) return;
+    const newKitId = value || null;
+    const currentKitId = current.fromKitId || null;
+    if (newKitId === currentKitId) return;
+    const newLinks = matLinks.map((l) => {
+      if (l.materialId !== materialId) return l;
+      if (newKitId) return { ...l, fromKitId: newKitId };
+      // strip fromKitId
+      const next = { ...l };
+      delete next.fromKitId;
+      return next;
+    });
+    await updateDoc(opRef, { materials: newLinks });
+  }
+
   async function remove() {
     if (!window.confirm(`Delete operation ${op.opNumber}?`)) return;
     await deleteDoc(opRef);
@@ -285,11 +305,9 @@ function OperationCard({
           {open ? '▾' : '▸'}
         </button>
         <span className="op-number">{op.opNumber}</span>
-        {!open && (
-          <span className="op-snippet">
-            {op.text || <span className="dim">(no instruction yet)</span>}
-          </span>
-        )}
+        <span className="op-snippet">
+          {op.text || <span className="dim">(no instruction yet)</span>}
+        </span>
         <div className="op-head-meta">
           {op.engineerType && (
             <span className="tag tag-skill">{op.engineerType}</span>
@@ -411,6 +429,13 @@ function OperationCard({
               <ul className="link-list">
                 {matLinks.map((link) => {
                   const m = materialById.get(link.materialId);
+                  const kitCandidates = findKitsContaining(
+                    link.materialId,
+                    materials
+                  );
+                  const fromKit = link.fromKitId
+                    ? materialById.get(link.fromKitId)
+                    : null;
                   return (
                     <li key={link.materialId} className="link-row">
                       {isAdmin ? (
@@ -436,6 +461,41 @@ function OperationCard({
                         <span className="kit-desc">{m.description}</span>
                       )}
                       {m?.isKit && <span className="tag tag-kit">kit</span>}
+
+                      {/* from-kit picker (admin) or label (viewer) */}
+                      {isAdmin && kitCandidates.length > 0 && (
+                        <select
+                          className="input"
+                          style={{
+                            fontSize: 12,
+                            padding: '2px 6px',
+                            height: 26,
+                            minWidth: 0,
+                            maxWidth: 220,
+                          }}
+                          value={link.fromKitId || ''}
+                          onChange={(e) =>
+                            changeMaterialFromKit(
+                              link.materialId,
+                              e.target.value
+                            )
+                          }
+                          aria-label="Source kit"
+                        >
+                          <option value="">(loose)</option>
+                          {kitCandidates.map((k) => (
+                            <option key={k.id} value={k.id}>
+                              from {k.partNumber}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {!isAdmin && link.fromKitId && (
+                        <span className="tag tag-count">
+                          from {fromKit ? fromKit.partNumber : '(missing kit)'}
+                        </span>
+                      )}
+
                       {isAdmin && (
                         <button
                           className="kit-remove"

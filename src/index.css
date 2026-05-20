@@ -397,6 +397,12 @@ a {
   padding: 8px 11px;
 }
 
+/* warn pill — short / over / mixed / not-in-bucket states */
+.tag-warn {
+  background: #faece7;
+  color: var(--hazard);
+}
+
 /* ---------- entity grid (home) ---------- */
 
 .entity-grid {

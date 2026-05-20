@@ -70,7 +70,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.12 · material buckets</span>
+        <span className="footer-build">v0.13 · TO Part bucket</span>
       </footer>
     </div>
   );

@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
+import { computeConfigBucket, reconcileBucket } from '../lib/bucket';
 import KitContents from '../components/KitContents';
 
 // Small helper — subscribe to a whole collection into state.
@@ -14,6 +15,37 @@ function useCollection(name) {
     );
   }, [name]);
   return items;
+}
+
+// Walk an HTL's children, gathering every operation reachable through GTLs
+// and nested HTLs. Cycle-guarded.
+function collectReachableOperations(
+  htlId,
+  htlById,
+  operationsByGtl,
+  seen = new Set()
+) {
+  if (seen.has(htlId)) return [];
+  seen.add(htlId);
+  const htl = htlById.get(htlId);
+  if (!htl || !Array.isArray(htl.children)) return [];
+  const result = [];
+  for (const child of htl.children) {
+    if (child.type === 'gtl') {
+      const ops = operationsByGtl.get(child.id) || [];
+      result.push(...ops);
+    } else if (child.type === 'htl') {
+      result.push(
+        ...collectReachableOperations(
+          child.id,
+          htlById,
+          operationsByGtl,
+          seen
+        )
+      );
+    }
+  }
+  return result;
 }
 
 export default function TOPartViewPage() {
@@ -62,6 +94,11 @@ export default function TOPartViewPage() {
     for (const x of materials) m.set(x.id, x);
     return m;
   }, [materials]);
+  const operationsById = useMemo(() => {
+    const m = new Map();
+    for (const x of operations) m.set(x.id, x);
+    return m;
+  }, [operations]);
 
   // Operations grouped by GTL, each group ordered by operation number.
   const operationsByGtl = useMemo(() => {
@@ -115,6 +152,30 @@ export default function TOPartViewPage() {
     : [];
   const htlChildren = htl && Array.isArray(htl.children) ? htl.children : [];
 
+  // ----- bucket + reconciliation -----
+  // Compute the bucket from the SB config (parent SB + applicable drawings),
+  // then gather every operation entry reachable from this part's HTL and
+  // reconcile.
+  const bucket =
+    config && sb
+      ? computeConfigBucket(config, { sb, drawingById, materialById })
+      : [];
+  const reachableOps = htl
+    ? collectReachableOperations(htl.id, htlById, operationsByGtl)
+    : [];
+  const entries = reachableOps.flatMap((op) =>
+    (op.materials || []).map((e) => ({
+      materialId: e.materialId,
+      qty: Number(e.qty) || 0,
+      fromKitId: e.fromKitId || null,
+      opId: op.id,
+    }))
+  );
+  // Not memoized — reconcileBucket is a cheap pure function over small
+  // inputs, and useMemo here would have to sit below the early returns,
+  // which violates the Rules of Hooks. Just call it directly.
+  const recon = reconcileBucket(bucket, entries, materialById);
+
   return (
     <div className="page">
       <div style={{ marginBottom: 16 }}>{backLink}</div>
@@ -127,7 +188,8 @@ export default function TOPartViewPage() {
         <h1>{to ? `TO ${to.toNumber} ${part.partLabel}` : part.partLabel}</h1>
         <p className="lede">
           Everything this Technical Order part links to — the configuration it
-          covers and the full task list, assembled in one view.
+          covers, the materials bucket assembled from it, and the full task
+          list.
         </p>
       </div>
 
@@ -153,6 +215,60 @@ export default function TOPartViewPage() {
               </div>
             )}
           </>
+        )}
+      </section>
+
+      {/* ---- materials bucket ---- */}
+      <section className="panel">
+        <div className="panel-titlebar">
+          <h2 className="panel-title">Materials bucket</h2>
+          {bucket.length > 0 && (
+            <span className="count">{bucket.length}</span>
+          )}
+        </div>
+        {!config || !sb ? (
+          <p className="notice">
+            No configuration assigned — the bucket can't be computed yet.
+          </p>
+        ) : bucket.length === 0 ? (
+          <p className="kit-empty">
+            Nothing in this configuration's bucket yet.
+          </p>
+        ) : (
+          <ul className="link-list">
+            {recon.lines.map((line) => (
+              <BucketLineView
+                key={line.materialId}
+                line={line}
+                materialById={materialById}
+                operationsById={operationsById}
+                gtlById={gtlById}
+              />
+            ))}
+          </ul>
+        )}
+
+        {recon.extras.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <p className="detail-section-title">
+              Not in bucket{' '}
+              <span className="dim">
+                · {recon.extras.length} entr
+                {recon.extras.length === 1 ? 'y' : 'ies'}
+              </span>
+            </p>
+            <ul className="link-list">
+              {recon.extras.map((e, i) => (
+                <ExtraRow
+                  key={i}
+                  entry={e}
+                  materialById={materialById}
+                  operationsById={operationsById}
+                  gtlById={gtlById}
+                />
+              ))}
+            </ul>
+          </div>
         )}
       </section>
 
@@ -187,6 +303,211 @@ export default function TOPartViewPage() {
       </section>
     </div>
   );
+}
+
+// ----- bucket scoreboard rows -----
+
+function BucketLineView({ line, materialById, operationsById, gtlById }) {
+  const [open, setOpen] = useState(false);
+  const m = materialById.get(line.materialId);
+  const expandable = line.state !== 'untouched';
+  const hasBody =
+    line.state === 'cracked' ||
+    (line.distributions && line.distributions.length > 0);
+
+  return (
+    <Fragment>
+      <li className="link-row">
+        {expandable && hasBody ? (
+          <button
+            className="expand-btn"
+            onClick={() => setOpen(!open)}
+            aria-label={open ? 'Collapse' : 'Expand'}
+          >
+            {open ? '▾' : '▸'}
+          </button>
+        ) : (
+          <span className="link-caret-spacer" />
+        )}
+        <span className="kit-qty">{line.requiredQty}×</span>
+        <span className="mono strong">
+          {m ? m.partNumber : '(missing material)'}
+        </span>
+        {m?.description && <span className="kit-desc">{m.description}</span>}
+        {line.isKit && <span className="tag tag-kit">kit</span>}
+        <StatusBadge line={line} />
+      </li>
+      {open && hasBody && (
+        <li className="kit-subtree">
+          {line.state === 'cracked' ? (
+            <ul className="link-list">
+              {line.crackedSub.map((sub, i) => (
+                <BucketSubLineView
+                  key={i}
+                  sub={sub}
+                  parentKitId={line.materialId}
+                  materialById={materialById}
+                  operationsById={operationsById}
+                  gtlById={gtlById}
+                />
+              ))}
+            </ul>
+          ) : (
+            <DistributionList
+              distributions={line.distributions}
+              operationsById={operationsById}
+              gtlById={gtlById}
+            />
+          )}
+        </li>
+      )}
+    </Fragment>
+  );
+}
+
+// Recursive sub-line view for components inside a cracked kit.
+function BucketSubLineView({
+  sub,
+  parentKitId,
+  materialById,
+  operationsById,
+  gtlById,
+}) {
+  const [open, setOpen] = useState(false);
+  const m = materialById.get(sub.materialId);
+  const parent = materialById.get(parentKitId);
+  const expandable = sub.state !== 'untouched';
+  const hasBody =
+    sub.state === 'cracked' ||
+    (sub.distributions && sub.distributions.length > 0);
+
+  return (
+    <Fragment>
+      <li className="link-row">
+        {expandable && hasBody ? (
+          <button
+            className="expand-btn"
+            onClick={() => setOpen(!open)}
+            aria-label={open ? 'Collapse' : 'Expand'}
+          >
+            {open ? '▾' : '▸'}
+          </button>
+        ) : (
+          <span className="link-caret-spacer" />
+        )}
+        <span className="kit-qty">{sub.requiredQty}×</span>
+        <span className="mono strong">
+          {m ? m.partNumber : '(missing material)'}
+        </span>
+        {m?.description && <span className="kit-desc">{m.description}</span>}
+        {sub.isKit && <span className="tag tag-kit">kit</span>}
+        {parent && (
+          <span className="dim">from {parent.partNumber}</span>
+        )}
+        <StatusBadge line={sub} />
+      </li>
+      {open && hasBody && (
+        <li className="kit-subtree">
+          {sub.state === 'cracked' ? (
+            <ul className="link-list">
+              {sub.crackedSub.map((deeper, i) => (
+                <BucketSubLineView
+                  key={i}
+                  sub={deeper}
+                  parentKitId={sub.materialId}
+                  materialById={materialById}
+                  operationsById={operationsById}
+                  gtlById={gtlById}
+                />
+              ))}
+            </ul>
+          ) : (
+            <DistributionList
+              distributions={sub.distributions}
+              operationsById={operationsById}
+              gtlById={gtlById}
+            />
+          )}
+        </li>
+      )}
+    </Fragment>
+  );
+}
+
+function DistributionList({ distributions, operationsById, gtlById }) {
+  if (!distributions || distributions.length === 0) return null;
+  return (
+    <ul className="link-list">
+      {distributions.map((d, i) => {
+        const op = operationsById.get(d.opId);
+        const gtl = op ? gtlById.get(op.gtlId) : null;
+        return (
+          <li key={i} className="link-row">
+            <span className="link-caret-spacer" />
+            <span className="kit-qty">{d.qty}×</span>
+            <span className="dim">to</span>
+            {gtl && <span className="mono">{gtl.gtlRef}</span>}
+            {op && <span className="mono strong">op {op.opNumber}</span>}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function ExtraRow({ entry, materialById, operationsById, gtlById }) {
+  const m = materialById.get(entry.materialId);
+  const op = operationsById.get(entry.opId);
+  const gtl = op ? gtlById.get(op.gtlId) : null;
+  const fromKit = entry.fromKitId ? materialById.get(entry.fromKitId) : null;
+  return (
+    <li className="link-row">
+      <span className="link-caret-spacer" />
+      <span className="kit-qty">{entry.qty}×</span>
+      <span className="mono strong">
+        {m ? m.partNumber : '(unknown material)'}
+      </span>
+      {m?.description && <span className="kit-desc">{m.description}</span>}
+      <span className="dim">in</span>
+      {gtl && <span className="mono">{gtl.gtlRef}</span>}
+      {op && <span className="mono strong">op {op.opNumber}</span>}
+      {entry.fromKitId && (
+        <span className="dim">
+          tagged from {fromKit ? fromKit.partNumber : '(missing kit)'}
+        </span>
+      )}
+      <span className="tag tag-warn">not in bucket</span>
+    </li>
+  );
+}
+
+function StatusBadge({ line }) {
+  const { state, distributedWhole, requiredQty, isKit } = line;
+  switch (state) {
+    case 'complete':
+      return (
+        <span className="tag tag-ready">{isKit ? 'whole' : 'complete'}</span>
+      );
+    case 'short':
+      return (
+        <span className="tag tag-warn">
+          {distributedWhole}/{requiredQty}
+        </span>
+      );
+    case 'over':
+      return (
+        <span className="tag tag-warn">
+          over by {distributedWhole - requiredQty}
+        </span>
+      );
+    case 'cracked':
+      return <span className="tag tag-count">cracked</span>;
+    case 'mixed':
+      return <span className="tag tag-warn">mixed</span>;
+    case 'untouched':
+    default:
+      return <span className="dim">untouched</span>;
+  }
 }
 
 // ----- recursive HTL tree: GTLs carry operations, HTLs nest -----
@@ -305,7 +626,6 @@ function OperationRow({ op, drawingById, materialById }) {
         >
           {open ? '▾' : '▸'}
         </button>
-        
         <span className="op-number">{op.opNumber}</span>
         <span className="op-snippet">
           {op.text || <span className="dim">(no instruction)</span>}
@@ -321,7 +641,6 @@ function OperationRow({ op, drawingById, materialById }) {
             <span className="tag tag-count">{drawingIds.length}× dwg</span>
           )}
         </div>
-
       </div>
 
       {open && (
@@ -363,6 +682,9 @@ function OperationRow({ op, drawingById, materialById }) {
                     : [];
                   const isKit = !!m?.isKit && comps.length > 0;
                   const kitOpen = isKit && openKits.has(link.materialId);
+                  const fromKit = link.fromKitId
+                    ? materialById.get(link.fromKitId)
+                    : null;
                   return (
                     <Fragment key={link.materialId}>
                       <li className="link-row">
@@ -385,6 +707,12 @@ function OperationRow({ op, drawingById, materialById }) {
                           <span className="kit-desc">{m.description}</span>
                         )}
                         {m?.isKit && <span className="tag tag-kit">kit</span>}
+                        {link.fromKitId && (
+                          <span className="tag tag-count">
+                            from{' '}
+                            {fromKit ? fromKit.partNumber : '(missing kit)'}
+                          </span>
+                        )}
                       </li>
                       {kitOpen && (
                         <li className="kit-subtree">

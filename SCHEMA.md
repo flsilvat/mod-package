@@ -74,7 +74,7 @@ General task list. A reusable group of operations.
 ### `operations` — OPERATION
 A single SAP step. Belongs to one GTL.
 `gtlId` · `opNumber` · `text` · `drawingIds[]` ·
-`materials[{materialId, qty}]`
+`materials[{materialId, qty, fromKitId?}]`
 
 ### `userRoles` — access control
 Not a data-model entity. One document per person; the document **id is their
