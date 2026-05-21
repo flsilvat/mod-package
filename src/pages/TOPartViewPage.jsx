@@ -59,6 +59,13 @@ export default function TOPartViewPage() {
     });
   }, [partId]);
 
+  // Open/closed state for individual operations on this page. Lifted up so
+  // an Expand-all / Collapse-all control can flip everything at once.
+  const [openOpIds, setOpenOpIds] = useState(() => new Set());
+  // Transient flag so the "Copy operations" button can show a "Copied"
+  // confirmation for a couple of seconds.
+  const [copied, setCopied] = useState(false);
+
   const tos = useCollection(COLLECTIONS.TECHNICAL_ORDER);
   const sbs = useCollection(COLLECTIONS.SERVICE_BULLETIN);
   const configs = useCollection(COLLECTIONS.SB_CONFIG);
@@ -176,6 +183,45 @@ export default function TOPartViewPage() {
   // which violates the Rules of Hooks. Just call it directly.
   const recon = reconcileBucket(bucket, entries, materialById);
 
+  // ----- task-list controls -----
+
+  function toggleOp(id) {
+    setOpenOpIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function expandAll() {
+    setOpenOpIds(new Set(reachableOps.map((o) => o.id)));
+  }
+
+  function collapseAll() {
+    setOpenOpIds(new Set());
+  }
+
+  // Copy every reachable operation's text to the clipboard, in walk order.
+  // Each block is "Op {n} · {engineerType}" followed by the instruction.
+  async function copyAllOpsText() {
+    const text = reachableOps
+      .map((op) => {
+        const header = `Op ${op.opNumber}${
+          op.engineerType ? ` · ${op.engineerType}` : ''
+        }`;
+        return `${header}\n${op.text || '(no instruction)'}`;
+      })
+      .join('\n\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.error('Copy failed', e);
+    }
+  }
+
   return (
     <div className="page">
       <div style={{ marginBottom: 16 }}>{backLink}</div>
@@ -274,7 +320,31 @@ export default function TOPartViewPage() {
 
       {/* ---- task list ---- */}
       <section className="panel">
-        <h2 className="panel-title">Task list</h2>
+        <div className="panel-titlebar">
+          <h2 className="panel-title">Task list</h2>
+          {reachableOps.length > 0 && (
+            <div className="task-controls">
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={expandAll}
+              >
+                Expand all
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={collapseAll}
+              >
+                Collapse all
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={copyAllOpsText}
+              >
+                {copied ? '✓ Copied' : 'Copy operations'}
+              </button>
+            </div>
+          )}
+        </div>
         {!htl ? (
           <p className="notice">No HTL assigned to this part.</p>
         ) : (
@@ -296,6 +366,8 @@ export default function TOPartViewPage() {
                 drawingById={drawingById}
                 materialById={materialById}
                 seen={new Set([htl.id])}
+                openOpIds={openOpIds}
+                toggleOp={toggleOp}
               />
             )}
           </>
@@ -520,6 +592,8 @@ function HTLTreeView({
   drawingById,
   materialById,
   seen,
+  openOpIds,
+  toggleOp,
 }) {
   return (
     <ul className="kit-tree">
@@ -546,6 +620,8 @@ function HTLTreeView({
                       op={op}
                       drawingById={drawingById}
                       materialById={materialById}
+                      isOpen={openOpIds.has(op.id)}
+                      onToggle={() => toggleOp(op.id)}
                     />
                   ))}
                 </div>
@@ -589,6 +665,8 @@ function HTLTreeView({
                 drawingById={drawingById}
                 materialById={materialById}
                 seen={childSeen}
+                openOpIds={openOpIds}
+                toggleOp={toggleOp}
               />
             )}
           </li>
@@ -600,9 +678,15 @@ function HTLTreeView({
 
 // ----- one operation: text always shown, links behind an expand -----
 
-function OperationRow({ op, drawingById, materialById }) {
-  const [open, setOpen] = useState(false);
+// ----- one operation: compact head with pills, snippet preview when
+//       closed; full text + drawings + materials when open. The open state
+//       is owned by the page so the Expand/Collapse-all buttons can flip
+//       everything at once. -----
+
+function OperationRow({ op, drawingById, materialById, isOpen, onToggle }) {
   const [openKits, setOpenKits] = useState(() => new Set());
+  // Per-row clipboard state so the button can flash "Copied" briefly.
+  const [copied, setCopied] = useState(false);
 
   const drawingIds = op.drawingIds || [];
   const matLinks = op.materials || [];
@@ -616,20 +700,28 @@ function OperationRow({ op, drawingById, materialById }) {
     });
   }
 
+  async function copyOpText() {
+    if (!op.text) return;
+    try {
+      await navigator.clipboard.writeText(op.text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.error('Copy failed', e);
+    }
+  }
+
   return (
     <div className="op-card">
       <div className="op-head">
         <button
           className="expand-btn"
-          onClick={() => setOpen(!open)}
-          aria-label={open ? 'Collapse' : 'Expand'}
+          onClick={onToggle}
+          aria-label={isOpen ? 'Collapse' : 'Expand'}
         >
-          {open ? '▾' : '▸'}
+          {isOpen ? '▾' : '▸'}
         </button>
         <span className="op-number">{op.opNumber}</span>
-        <span className="op-snippet">
-          {op.text || <span className="dim">(no instruction)</span>}
-        </span>
         <div className="op-head-meta">
           {op.engineerType && (
             <span className="tag tag-skill">{op.engineerType}</span>
@@ -643,8 +735,30 @@ function OperationRow({ op, drawingById, materialById }) {
         </div>
       </div>
 
-      {open && (
+      {!isOpen && (
+        <div className="op-snippet-row">
+          <span className="op-snippet-preview">
+            {op.text || <span className="dim">(no instruction)</span>}
+          </span>
+        </div>
+      )}
+
+      {isOpen && (
         <div className="op-body">
+          <div className="op-readtext-wrap">
+            <p className="op-readtext">
+              {op.text || <span className="dim">(no instruction)</span>}
+            </p>
+            {op.text && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={copyOpText}
+              >
+                {copied ? '✓ Copied' : 'Copy operation'}
+              </button>
+            )}
+          </div>
+
           <div className="op-sub">
             <p className="detail-section-title">Drawings</p>
             {drawingIds.length === 0 ? (

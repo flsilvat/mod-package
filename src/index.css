@@ -1175,18 +1175,9 @@ a {
 
 .op-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 9px;
   padding: 8px 12px;
-}
-
-/* right-aligned metadata group in an operation head */
-.op-head-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  flex-shrink: 0;
 }
 
 .op-number {
@@ -1197,7 +1188,6 @@ a {
 }
 
 .op-snippet {
-  min-width: 0;
   width: 55ch;
   max-width: 100%;
   font-family: var(--font-mono);
@@ -1206,6 +1196,30 @@ a {
   color: var(--ink-soft);
   white-space: pre-wrap;
   overflow-wrap: break-word;
+}
+
+/* compact single-line preview shown under the head on the TO Part view */
+.op-snippet-preview {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* the snippet sits in its own row below the head when the op is closed —
+   indented so it lines up under the op number rather than the caret */
+.op-snippet-row {
+  padding: 0 12px 10px 36px;
+}
+
+/* expand-all / collapse-all / copy buttons on the Task list panel */
+.task-controls {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
 }
 
 /* right-aligned metadata group in an operation head */
@@ -1299,6 +1313,16 @@ a {
   border-radius: 6px;
 }
 
+/* read-text plus its "Copy operation" button: the button sits to the right
+   of the text box, aligned to its bottom edge. On narrow screens the
+   button wraps below. */
+.op-readtext-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .op-readline {
   font-size: 13px;
   margin: 0 0 6px;
@@ -1311,12 +1335,6 @@ a {
 .tag-skill {
   background: #ece1c8;
   color: #6f5a23;
-}
-
-/* muted count pill — e.g. "3× material", "2× dwg" */
-.tag-count {
-  background: var(--line);
-  color: var(--ink-soft);
 }
 
 /* ---------- kit contents inside a linked-material list ---------- */
@@ -1378,4 +1396,12 @@ a {
   flex: 1 1 220px;
   min-width: 200px;
   max-width: 320px;
+}
+
+/* the multi-select inside the scope bar — drop the default margin-top so
+   the picker, the chips, and the "Scope" label line up vertically */
+.scope-bar .multiselect {
+  margin-top: 0;
+  display: block;
+  width: 100%;
 }

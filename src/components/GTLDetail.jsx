@@ -305,9 +305,6 @@ function OperationCard({
           {open ? '▾' : '▸'}
         </button>
         <span className="op-number">{op.opNumber}</span>
-        <span className="op-snippet">
-          {op.text || <span className="dim">(no instruction yet)</span>}
-        </span>
         <div className="op-head-meta">
           {op.engineerType && (
             <span className="tag tag-skill">{op.engineerType}</span>
@@ -325,6 +322,14 @@ function OperationCard({
           </button>
         )}
       </div>
+
+      {!open && (
+        <div className="op-snippet-row">
+          <span className="op-snippet">
+            {op.text || <span className="dim">(no instruction yet)</span>}
+          </span>
+        </div>
+      )}
 
       {open && (
         <div className="op-body">

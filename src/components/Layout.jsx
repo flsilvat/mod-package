@@ -85,7 +85,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.14 · scope filter</span>
+        <span className="footer-build">v0.14.2</span>
       </footer>
     </div>
   );
