@@ -11,6 +11,7 @@ import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { findKitsContaining } from '../lib/bucket';
 import MultiSelect from './MultiSelect';
+import AlternatesChip from './AlternatesChip';
 
 // ----- expanded view for one GTL: operations + applicable aircraft -----
 
@@ -462,6 +463,7 @@ function OperationCard({
                       <span className="mono strong">
                         {m ? m.partNumber : '(missing material)'}
                       </span>
+                      <AlternatesChip materialId={link.materialId} />
                       {m?.description && (
                         <span className="kit-desc">{m.description}</span>
                       )}

@@ -121,6 +121,11 @@ export function findKitsContaining(materialId, materials) {
 // Returns { lines, extras } where each line carries its reconciled state
 // and (for cracked kits) a recursive sub-line tree.
 //
+// `alternatesMap` (optional) — materialId -> Set of materialIds in the same
+// interchange group (including itself). When provided, an entry counts
+// toward a bucket line if its materialId matches the line's materialId OR
+// any of its interchangeable alternates.
+//
 // Possible per-line `state` values:
 //   'untouched' — nothing has been distributed for this line
 //   'short'     — partially distributed
@@ -128,7 +133,7 @@ export function findKitsContaining(materialId, materials) {
 //   'over'      — more distributed than required
 //   'cracked'   — the kit has been opened; sub-lines carry the detail
 //   'mixed'     — kit has both whole and cracked assignments (inconsistent)
-export function reconcileBucket(bucket, entries, materialById) {
+export function reconcileBucket(bucket, entries, materialById, alternatesMap) {
   const lines = bucket.map((line) =>
     reconcileDemand({
       materialId: line.materialId,
@@ -136,6 +141,7 @@ export function reconcileBucket(bucket, entries, materialById) {
       fromKitContext: null,
       entries,
       materialById,
+      alternatesMap,
     })
   );
 
@@ -154,16 +160,22 @@ function reconcileDemand({
   fromKitContext,
   entries,
   materialById,
+  alternatesMap,
 }) {
   const m = materialById.get(materialId);
   const isKit =
     !!m?.isKit && Array.isArray(m.components) && m.components.length > 0;
 
-  // Entries that whole-assign this demand at this context — same materialId,
-  // same fromKitContext (null for top-level lines, parent kit id for nested).
+  // Acceptable materialIds for satisfying this demand at this context:
+  // the line's own materialId plus any interchangeable alternates.
+  const acceptable =
+    alternatesMap?.get(materialId) || new Set([materialId]);
+
+  // Whole/loose match: entries with an acceptable materialId, at this
+  // fromKitContext (null for top-level lines, parent kit id for nested).
   const wholeMatches = entries.filter(
     (e) =>
-      e.materialId === materialId &&
+      acceptable.has(e.materialId) &&
       (e.fromKitId || null) === (fromKitContext || null)
   );
   const distributedWhole = wholeMatches.reduce(
@@ -226,6 +238,7 @@ function reconcileDemand({
       fromKitContext: materialId,
       entries,
       materialById,
+      alternatesMap,
     })
   );
 

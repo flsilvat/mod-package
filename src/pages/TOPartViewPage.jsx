@@ -4,7 +4,9 @@ import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { computeConfigBucket, reconcileBucket } from '../lib/bucket';
+import { useScope } from '../lib/scope';
 import KitContents from '../components/KitContents';
+import AlternatesChip from '../components/AlternatesChip';
 
 // Small helper — subscribe to a whole collection into state.
 function useCollection(name) {
@@ -50,6 +52,7 @@ function collectReachableOperations(
 
 export default function TOPartViewPage() {
   const { partId } = useParams();
+  const scope = useScope();
 
   // undefined = still loading, null = not found
   const [part, setPart] = useState(undefined);
@@ -181,7 +184,12 @@ export default function TOPartViewPage() {
   // Not memoized — reconcileBucket is a cheap pure function over small
   // inputs, and useMemo here would have to sit below the early returns,
   // which violates the Rules of Hooks. Just call it directly.
-  const recon = reconcileBucket(bucket, entries, materialById);
+  const recon = reconcileBucket(
+    bucket,
+    entries,
+    materialById,
+    scope.alternatesMap
+  );
 
   // ----- task-list controls -----
 
@@ -405,6 +413,7 @@ function BucketLineView({ line, materialById, operationsById, gtlById }) {
         <span className="mono strong">
           {m ? m.partNumber : '(missing material)'}
         </span>
+        <AlternatesChip materialId={line.materialId} />
         {m?.description && <span className="kit-desc">{m.description}</span>}
         {line.isKit && <span className="tag tag-kit">kit</span>}
         <StatusBadge line={line} />
@@ -471,6 +480,7 @@ function BucketSubLineView({
         <span className="mono strong">
           {m ? m.partNumber : '(missing material)'}
         </span>
+        <AlternatesChip materialId={sub.materialId} />
         {m?.description && <span className="kit-desc">{m.description}</span>}
         {sub.isKit && <span className="tag tag-kit">kit</span>}
         {parent && (
@@ -539,6 +549,7 @@ function ExtraRow({ entry, materialById, operationsById, gtlById }) {
       <span className="mono strong">
         {m ? m.partNumber : '(unknown material)'}
       </span>
+      <AlternatesChip materialId={entry.materialId} />
       {m?.description && <span className="kit-desc">{m.description}</span>}
       <span className="dim">in</span>
       {gtl && <span className="mono">{gtl.gtlRef}</span>}
@@ -817,6 +828,7 @@ function OperationRow({ op, drawingById, materialById, isOpen, onToggle }) {
                         <span className="mono strong">
                           {m ? m.partNumber : '(missing material)'}
                         </span>
+                        <AlternatesChip materialId={link.materialId} />
                         {m?.description && (
                           <span className="kit-desc">{m.description}</span>
                         )}

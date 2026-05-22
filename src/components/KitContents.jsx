@@ -1,6 +1,9 @@
 // Read-only recursive view of what a kit contains — used where a kit appears
 // as a linked material (e.g. on a drawing) and the parts inside it should be
 // visible. Nested kits expand automatically, with a cycle guard.
+
+import AlternatesChip from './AlternatesChip';
+
 export default function KitContents({ components, byId, seen }) {
   return (
     <ul className="kit-tree">
@@ -30,6 +33,7 @@ export default function KitContents({ components, byId, seen }) {
             <div className="kit-node-row">
               <span className="kit-qty">{component.qty}×</span>
               <span className="mono strong">{material.partNumber}</span>
+              <AlternatesChip materialId={material.id} />
               {material.description && (
                 <span className="kit-desc">{material.description}</span>
               )}

@@ -1405,3 +1405,27 @@ a {
   display: block;
   width: 100%;
 }
+
+/* ---------- interchange (alternate part numbers) ---------- */
+
+/* "⇄ N" chip shown next to any part number that belongs to an interchange
+   group. Hover/long-press reveals the alternates in the native tooltip. */
+.tag-alt {
+  background: #ece5f2;
+  color: #5b3a8a;
+}
+
+/* the per-group note input on the Materials page detail */
+.alternate-note {
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.alternate-note-readonly {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-style: italic;
+}

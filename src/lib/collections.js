@@ -17,6 +17,10 @@ export const COLLECTIONS = {
   GTL: 'gtls', //                  GTL        (general task list)
   OPERATION: 'operations', //      OPERATION  (a single SAP step)
 
+  // Equivalence groups of interchangeable materials. Each group has a
+  // free-text note (the justification) and a list of materialIds.
+  INTERCHANGE_GROUP: 'interchangeGroups',
+
   // Access control — one doc per person, id = their email, field: role.
   USER_ROLES: 'userRoles',
 };

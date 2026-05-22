@@ -20,6 +20,8 @@ import { chunk } from '../lib/batch';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
 import MultiSelect from '../components/MultiSelect';
+import AlternatesChip from '../components/AlternatesChip';
+import AlternatesSection from '../components/AlternatesSection';
 
 export default function MaterialsPage() {
   const { isAdmin } = useAuth();
@@ -355,17 +357,18 @@ export default function MaterialsPage() {
                   <Fragment key={m.id}>
                     <tr className={isMatch ? 'row-match' : ''}>
                       <td className="col-caret">
-                        {m.isKit && (
-                          <button
-                            className="expand-btn"
-                            onClick={() => toggleExpand(m.id)}
-                            aria-label={isOpen ? 'Collapse' : 'Expand'}
-                          >
-                            {isOpen ? '▾' : '▸'}
-                          </button>
-                        )}
+                        <button
+                          className="expand-btn"
+                          onClick={() => toggleExpand(m.id)}
+                          aria-label={isOpen ? 'Collapse' : 'Expand'}
+                        >
+                          {isOpen ? '▾' : '▸'}
+                        </button>
                       </td>
-                      <td className="mono strong">{m.partNumber}</td>
+                      <td>
+                        <span className="mono strong">{m.partNumber}</span>{' '}
+                        <AlternatesChip materialId={m.id} />
+                      </td>
                       <td>
                         {m.description || <span className="dim">—</span>}
                       </td>
@@ -392,11 +395,11 @@ export default function MaterialsPage() {
                         </td>
                       )}
                     </tr>
-                    {m.isKit && isOpen && (
+                    {isOpen && (
                       <tr className="detail-row">
                         <td colSpan={colSpan}>
-                          <KitDetail
-                            kit={m}
+                          <MaterialDetail
+                            material={m}
                             materials={materials}
                             byId={byId}
                             isAdmin={isAdmin}
@@ -424,10 +427,11 @@ export default function MaterialsPage() {
   );
 }
 
-// ----- expanded view for one kit: contents tree + component editor -----
+// ----- expanded view for one material: kit contents (if a kit) plus
+//       the interchange Alternates section (for any material) -----
 
-function KitDetail({
-  kit,
+function MaterialDetail({
+  material,
   materials,
   byId,
   isAdmin,
@@ -436,48 +440,60 @@ function KitDetail({
   onRemoveComponent,
   onQtyChange,
 }) {
-  const components = Array.isArray(kit.components) ? kit.components : [];
+  const components = Array.isArray(material.components)
+    ? material.components
+    : [];
 
   // Materials that can be added: not already a component, and would not
-  // create a loop (which also rules out the kit itself).
+  // create a loop (which also rules out the material itself).
   const addable = materials.filter(
     (m) =>
       !components.some((c) => c.materialId === m.id) &&
-      !wouldCreateCycle(kit.id, m.id, byId)
+      !wouldCreateCycle(material.id, m.id, byId)
   );
 
   return (
     <div className="detail-panel">
-      <div className="detail-section">
-        <p className="detail-section-title">Contents of {kit.partNumber}</p>
+      {material.isKit && (
+        <div className="detail-section">
+          <p className="detail-section-title">
+            Contents of {material.partNumber}
+          </p>
 
-        {components.length === 0 ? (
-          <p className="kit-empty">No components yet.</p>
-        ) : (
-          <ComponentTree
-            components={components}
-            byId={byId}
-            seen={new Set([kit.id])}
-            highlightIds={highlightIds}
-            onRemove={isAdmin ? (index) => onRemoveComponent(kit, index) : null}
-            onQtyChange={
-              isAdmin ? (index, value) => onQtyChange(kit, index, value) : null
-            }
-          />
-        )}
+          {components.length === 0 ? (
+            <p className="kit-empty">No components yet.</p>
+          ) : (
+            <ComponentTree
+              components={components}
+              byId={byId}
+              seen={new Set([material.id])}
+              highlightIds={highlightIds}
+              onRemove={
+                isAdmin ? (index) => onRemoveComponent(material, index) : null
+              }
+              onQtyChange={
+                isAdmin
+                  ? (index, value) => onQtyChange(material, index, value)
+                  : null
+              }
+            />
+          )}
 
-        {isAdmin && (
-          <MultiSelect
-            placeholder="Add components…"
-            onAdd={(ids) => onAddComponents(kit, ids)}
-            options={addable.map((m) => ({
-              id: m.id,
-              label: m.partNumber,
-              sublabel: (m.description || '') + (m.isKit ? '  [kit]' : ''),
-            }))}
-          />
-        )}
-      </div>
+          {isAdmin && (
+            <MultiSelect
+              placeholder="Add components…"
+              onAdd={(ids) => onAddComponents(material, ids)}
+              options={addable.map((m) => ({
+                id: m.id,
+                label: m.partNumber,
+                sublabel: (m.description || '') + (m.isKit ? '  [kit]' : ''),
+              }))}
+            />
+          )}
+        </div>
+      )}
+
+      <AlternatesSection material={material} />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { computeConfigBucket, kitTally } from '../lib/bucket';
 import BatchInput from './BatchInput';
 import MultiSelect from './MultiSelect';
 import KitContents from './KitContents';
+import AlternatesChip from './AlternatesChip';
 
 // ----- expanded view for one Service Bulletin -----
 
@@ -233,6 +234,7 @@ export default function SBDetail({
                   <span className="mono strong">
                     {m ? m.partNumber : '(missing material)'}
                   </span>
+                  <AlternatesChip materialId={link.materialId} />
                   {m?.description && (
                     <span className="kit-desc">{m.description}</span>
                   )}
@@ -442,6 +444,7 @@ function ConfigCard({
                     <span className="mono strong">
                       {m ? m.partNumber : '(missing material)'}
                     </span>
+                    <AlternatesChip materialId={line.materialId} />
                     {m?.description && (
                       <span className="kit-desc">{m.description}</span>
                     )}

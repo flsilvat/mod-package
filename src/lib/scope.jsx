@@ -19,6 +19,7 @@ import { COLLECTIONS } from './collections';
 import { collectDescendants } from './materials';
 import { collectRefDescendants } from './drawings';
 import { drawingAppliesToConfig, computeConfigBucket } from './bucket';
+import { buildAlternatesMap, buildGroupByMaterialId } from './interchange';
 
 const ScopeContext = createContext(null);
 
@@ -34,6 +35,7 @@ export function ScopeProvider({ children }) {
   const [materials, setMaterials] = useState([]);
   const [drawings, setDrawings] = useState([]);
   const [htls, setHtls] = useState([]);
+  const [interchangeGroups, setInterchangeGroups] = useState([]);
 
   useEffect(() => {
     const subs = [
@@ -58,6 +60,11 @@ export function ScopeProvider({ children }) {
       ),
       onSnapshot(collection(db, COLLECTIONS.HTL), (snap) =>
         setHtls(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      ),
+      onSnapshot(collection(db, COLLECTIONS.INTERCHANGE_GROUP), (snap) =>
+        setInterchangeGroups(
+          snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        )
       ),
     ];
     return () => subs.forEach((u) => u());
@@ -100,6 +107,18 @@ export function ScopeProvider({ children }) {
     return m;
   }, [htls]);
 
+  // Interchange group maps — alternatesMap is materialId -> Set of all
+  // materialIds in the same group (including itself), and groupByMaterialId
+  // is materialId -> the group document.
+  const alternatesMap = useMemo(
+    () => buildAlternatesMap(interchangeGroups),
+    [interchangeGroups]
+  );
+  const groupByMaterialId = useMemo(
+    () => buildGroupByMaterialId(interchangeGroups),
+    [interchangeGroups]
+  );
+
   // The user's items resolve to a set of SB Config IDs.
   const configIds = useMemo(
     () => resolveScopeConfigIds(items, toPartsById),
@@ -110,13 +129,20 @@ export function ScopeProvider({ children }) {
   // filtering applied — pages show everything).
   const materialIds = useMemo(() => {
     if (configIds.size === 0) return null;
-    return materialIdsForConfigs(configIds, {
+    const ids = materialIdsForConfigs(configIds, {
       configsById,
       sbsById,
       drawingById,
       materialById,
     });
-  }, [configIds, configsById, sbsById, drawingById, materialById]);
+    // Expand by interchangeable alternates so the Materials page shows any
+    // PN the engineer might reach for as a substitute.
+    for (const id of [...ids]) {
+      const alts = alternatesMap.get(id);
+      if (alts) for (const a of alts) ids.add(a);
+    }
+    return ids;
+  }, [configIds, configsById, sbsById, drawingById, materialById, alternatesMap]);
 
   const drawingIds = useMemo(() => {
     if (configIds.size === 0) return null;
@@ -169,6 +195,12 @@ export function ScopeProvider({ children }) {
     configsById,
     sbsById,
     tosById,
+    // material catalogue and interchange data
+    materials,
+    materialById,
+    interchangeGroups,
+    alternatesMap,
+    groupByMaterialId,
   };
 
   return (

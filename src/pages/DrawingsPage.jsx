@@ -21,6 +21,7 @@ import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
 import MultiSelect from '../components/MultiSelect';
 import KitContents from '../components/KitContents';
+import AlternatesChip from '../components/AlternatesChip';
 
 export default function DrawingsPage() {
   const { isAdmin } = useAuth();
@@ -539,6 +540,7 @@ function DrawingDetail({
                     <span className="mono strong">
                       {m ? m.partNumber : '(missing material)'}
                     </span>
+                    <AlternatesChip materialId={link.materialId} />
                     {m?.description && (
                       <span className="kit-desc">{m.description}</span>
                     )}
