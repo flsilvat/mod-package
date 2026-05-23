@@ -396,6 +396,23 @@ function DrawingDetail({
   const cfgLinks = drawing.sbConfigIds || [];
   const refIds = drawing.refDrawingIds || [];
 
+  // ----- inline edits for the drawing's own fields -----
+  async function updateDocNumber(value) {
+    const v = (value || '').trim();
+    if (!v || v === drawing.docNumber) return;
+    await updateDoc(drawingRef, { docNumber: v });
+  }
+  async function updateRev(value) {
+    const v = (value || '').trim();
+    if (v === (drawing.rev || '')) return;
+    await updateDoc(drawingRef, { rev: v });
+  }
+  async function updateTitle(value) {
+    const v = (value || '').trim();
+    if (v === (drawing.title || '')) return;
+    await updateDoc(drawingRef, { title: v });
+  }
+
   // Which kit-materials are expanded to show their contents.
   const [expandedKits, setExpandedKits] = useState(() => new Set());
 
@@ -492,6 +509,41 @@ function DrawingDetail({
 
   return (
     <div className="detail-panel">
+      {isAdmin && (
+        <div className="detail-section">
+          <p className="detail-section-title">Details</p>
+          <div className="form-row">
+            <div className="field">
+              <label>Document number</label>
+              <input
+                className="input mono"
+                defaultValue={drawing.docNumber}
+                key={'dn' + drawing.docNumber}
+                onBlur={(e) => updateDocNumber(e.target.value)}
+              />
+            </div>
+            <div className="field field-rev">
+              <label>Rev</label>
+              <input
+                className="input mono"
+                defaultValue={drawing.rev || ''}
+                key={'rv' + (drawing.rev || '')}
+                onBlur={(e) => updateRev(e.target.value)}
+              />
+            </div>
+            <div className="field field-wide">
+              <label>Title</label>
+              <input
+                className="input"
+                defaultValue={drawing.title || ''}
+                key={'tt' + (drawing.title || '')}
+                onBlur={(e) => updateTitle(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ---- materials called in this drawing ---- */}
       <div className="detail-section">
         <p className="detail-section-title">

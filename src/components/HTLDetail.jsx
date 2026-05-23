@@ -21,6 +21,13 @@ export default function HTLDetail({
   const children = Array.isArray(htl.children) ? htl.children : [];
   const acIds = htl.aircraftIds || [];
 
+  // ----- inline edit for the HTL reference -----
+  async function updateHtlRef(value) {
+    const v = (value || '').trim();
+    if (!v || v === htl.htlRef) return;
+    await updateDoc(htlRef, { htlRef: v });
+  }
+
   const gtlChildIds = new Set(
     children.filter((c) => c.type === 'gtl').map((c) => c.id)
   );
@@ -70,6 +77,23 @@ export default function HTLDetail({
 
   return (
     <div className="detail-panel">
+      {isAdmin && (
+        <div className="detail-section">
+          <p className="detail-section-title">Details</p>
+          <div className="form-row">
+            <div className="field">
+              <label>HTL reference</label>
+              <input
+                className="input mono"
+                defaultValue={htl.htlRef}
+                key={'r' + htl.htlRef}
+                onBlur={(e) => updateHtlRef(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ---- the GTL / HTL tree ---- */}
       <div className="detail-section">
         <p className="detail-section-title">Contents of {htl.htlRef}</p>

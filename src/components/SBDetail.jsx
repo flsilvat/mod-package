@@ -33,6 +33,18 @@ export default function SBDetail({
   const drawingIds = sb.drawingIds || [];
   const matLinks = sb.materials || [];
 
+  // ----- inline edits for the bulletin's own fields -----
+  async function updateSbRef(value) {
+    const v = (value || '').trim();
+    if (!v || v === sb.sbRef) return;
+    await updateDoc(sbRef, { sbRef: v });
+  }
+  async function updateTitle(value) {
+    const v = (value || '').trim();
+    if (v === (sb.title || '')) return;
+    await updateDoc(sbRef, { title: v });
+  }
+
   // ----- configurations -----
   const [configName, setConfigName] = useState('');
   const sortedConfigs = [...configs].sort((a, b) =>
@@ -112,6 +124,32 @@ export default function SBDetail({
 
   return (
     <div className="detail-panel">
+      {isAdmin && (
+        <div className="detail-section">
+          <p className="detail-section-title">Details</p>
+          <div className="form-row">
+            <div className="field">
+              <label>SB reference</label>
+              <input
+                className="input mono"
+                defaultValue={sb.sbRef}
+                key={'r' + sb.sbRef}
+                onBlur={(e) => updateSbRef(e.target.value)}
+              />
+            </div>
+            <div className="field field-wide">
+              <label>Title</label>
+              <input
+                className="input"
+                defaultValue={sb.title || ''}
+                key={'t' + (sb.title || '')}
+                onBlur={(e) => updateTitle(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ---- configurations ---- */}
       <div className="detail-section">
         <p className="detail-section-title">

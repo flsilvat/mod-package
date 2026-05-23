@@ -23,9 +23,17 @@ export default function TODetail({
   htlById,
   isAdmin,
 }) {
+  const toRef = doc(db, COLLECTIONS.TECHNICAL_ORDER, to.id);
   const sortedParts = [...parts].sort((a, b) =>
     (a.partLabel || '').localeCompare(b.partLabel || '')
   );
+
+  // ----- inline edit for the TO number -----
+  async function updateToNumber(value) {
+    const v = (value || '').trim();
+    if (!v || v === to.toNumber) return;
+    await updateDoc(toRef, { toNumber: v });
+  }
 
   const [partLabel, setPartLabel] = useState(`Part ${parts.length + 1}`);
 
@@ -45,6 +53,23 @@ export default function TODetail({
 
   return (
     <div className="detail-panel">
+      {isAdmin && (
+        <div className="detail-section">
+          <p className="detail-section-title">Details</p>
+          <div className="form-row">
+            <div className="field">
+              <label>TO number</label>
+              <input
+                className="input mono"
+                defaultValue={to.toNumber}
+                key={'n' + to.toNumber}
+                onBlur={(e) => updateToNumber(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="detail-section">
         <p className="detail-section-title">Parts of {to.toNumber}</p>
         <p
@@ -140,9 +165,9 @@ function TOPartCard({ part, configs, htls, configById, htlById, isAdmin }) {
       <div className="config-card">
         <div className="config-card-head">
           <span className="config-name-static">{part.partLabel}</span>
-            <Link to={`/to-part/${part.id}`} className="btn btn-ghost btn-sm">
-              Open full view →
-            </Link>
+          <Link to={`/to-part/${part.id}`} className="btn btn-ghost btn-sm">
+            Open full view →
+          </Link>
         </div>
         <p className="op-readline">
           <span className="op-field-label">Covers configuration:</span>{' '}
@@ -166,18 +191,13 @@ function TOPartCard({ part, configs, htls, configById, htlById, isAdmin }) {
           onBlur={(e) => renameLabel(e.target.value)}
           aria-label="Part label"
         />
-        <Link
-          to={`/to-part/${part.id}`}
-          className="btn btn-ghost btn-sm"
-          style={{ alignSelf: 'flex-start', margin: '0 0 4px' }}
-          >
-            Open full view →
+        <Link to={`/to-part/${part.id}`} className="btn btn-ghost btn-sm">
+          Open full view →
         </Link>
         <button className="btn btn-ghost btn-sm" onClick={remove}>
           Delete
         </button>
       </div>
-      
 
       <label className="op-field">
         <span className="op-field-label">Covers configuration</span>

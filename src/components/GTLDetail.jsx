@@ -29,6 +29,13 @@ export default function GTLDetail({
   const gtlRef = doc(db, COLLECTIONS.GTL, gtl.id);
   const acIds = gtl.aircraftIds || [];
 
+  // ----- inline edit for the GTL reference -----
+  async function updateGtlRef(value) {
+    const v = (value || '').trim();
+    if (!v || v === gtl.gtlRef) return;
+    await updateDoc(gtlRef, { gtlRef: v });
+  }
+
   const sortedOps = [...operations].sort(
     (a, b) => (Number(a.opNumber) || 0) - (Number(b.opNumber) || 0)
   );
@@ -87,6 +94,23 @@ export default function GTLDetail({
 
   return (
     <div className="detail-panel">
+      {isAdmin && (
+        <div className="detail-section">
+          <p className="detail-section-title">Details</p>
+          <div className="form-row">
+            <div className="field">
+              <label>GTL reference</label>
+              <input
+                className="input mono"
+                defaultValue={gtl.gtlRef}
+                key={'r' + gtl.gtlRef}
+                onBlur={(e) => updateGtlRef(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ---- operations ---- */}
       <div className="detail-section">
         <p className="detail-section-title">Operations in {gtl.gtlRef}</p>

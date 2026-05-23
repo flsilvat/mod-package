@@ -8,6 +8,7 @@ import {
   query,
   orderBy,
   serverTimestamp,
+  updateDoc,
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -123,6 +124,20 @@ export default function AircraftPage() {
     }
   }
 
+  // Inline edits for an existing aircraft — admin types in the cell and
+  // commits on blur. Trimmed; uppercased for registration to keep style
+  // consistent with how it's stored on add.
+  async function updateRegistration(ac, value) {
+    const v = (value || '').trim().toUpperCase();
+    if (!v || v === ac.registration) return;
+    await updateDoc(doc(db, COLLECTIONS.AIRCRAFT, ac.id), { registration: v });
+  }
+  async function updateFleetType(ac, value) {
+    const v = (value || '').trim();
+    if (v === (ac.fleetType || '')) return;
+    await updateDoc(doc(db, COLLECTIONS.AIRCRAFT, ac.id), { fleetType: v });
+  }
+
   return (
     <div className="page">
       <div className="page-head">
@@ -229,8 +244,34 @@ export default function AircraftPage() {
             <tbody>
               {filtered.map((ac) => (
                 <tr key={ac.id}>
-                  <td className="mono strong">{ac.registration}</td>
-                  <td>{ac.fleetType || <span className="dim">—</span>}</td>
+                  <td className={isAdmin ? '' : 'mono strong'}>
+                    {isAdmin ? (
+                      <input
+                        className="input mono"
+                        defaultValue={ac.registration}
+                        key={'r' + ac.registration}
+                        onBlur={(e) => updateRegistration(ac, e.target.value)}
+                        aria-label="Registration"
+                      />
+                    ) : (
+                      ac.registration
+                    )}
+                  </td>
+                  <td>
+                    {isAdmin ? (
+                      <input
+                        className="input"
+                        defaultValue={ac.fleetType || ''}
+                        key={'f' + (ac.fleetType || '')}
+                        onBlur={(e) => updateFleetType(ac, e.target.value)}
+                        aria-label="Fleet type"
+                      />
+                    ) : ac.fleetType ? (
+                      ac.fleetType
+                    ) : (
+                      <span className="dim">—</span>
+                    )}
+                  </td>
                   {isAdmin && (
                     <td className="col-action">
                       <button

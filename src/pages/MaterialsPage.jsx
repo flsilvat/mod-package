@@ -440,9 +440,26 @@ function MaterialDetail({
   onRemoveComponent,
   onQtyChange,
 }) {
+  const materialRef = doc(db, COLLECTIONS.MATERIAL, material.id);
   const components = Array.isArray(material.components)
     ? material.components
     : [];
+
+  // ----- inline edits for the material's own fields -----
+  async function updatePartNumber(value) {
+    const v = (value || '').trim();
+    if (!v || v === material.partNumber) return;
+    await updateDoc(materialRef, { partNumber: v });
+  }
+  async function updateDescription(value) {
+    const v = (value || '').trim();
+    if (v === (material.description || '')) return;
+    await updateDoc(materialRef, { description: v });
+  }
+  async function updateIsKit(checked) {
+    if (checked === !!material.isKit) return;
+    await updateDoc(materialRef, { isKit: checked });
+  }
 
   // Materials that can be added: not already a component, and would not
   // create a loop (which also rules out the material itself).
@@ -454,6 +471,40 @@ function MaterialDetail({
 
   return (
     <div className="detail-panel">
+      {isAdmin && (
+        <div className="detail-section">
+          <p className="detail-section-title">Details</p>
+          <div className="form-row">
+            <div className="field">
+              <label>Part number</label>
+              <input
+                className="input mono"
+                defaultValue={material.partNumber}
+                key={'pn' + material.partNumber}
+                onBlur={(e) => updatePartNumber(e.target.value)}
+              />
+            </div>
+            <div className="field field-wide">
+              <label>Description</label>
+              <input
+                className="input"
+                defaultValue={material.description || ''}
+                key={'desc' + (material.description || '')}
+                onBlur={(e) => updateDescription(e.target.value)}
+              />
+            </div>
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={!!material.isKit}
+                onChange={(e) => updateIsKit(e.target.checked)}
+              />
+              Kit
+            </label>
+          </div>
+        </div>
+      )}
+
       {material.isKit && (
         <div className="detail-section">
           <p className="detail-section-title">
