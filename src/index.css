@@ -1434,11 +1434,12 @@ a {
    Used in tables where a long string (drawing title, etc.) would
    otherwise wrap the row. Hover the cell to see the full text. */
 .cell-truncate {
-  display: block;
-  max-width: 360px;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 360px;
 }
 
 /* Compact metadata cell — slightly smaller than body text, single line. */
