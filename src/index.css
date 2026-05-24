@@ -1429,3 +1429,20 @@ a {
   color: var(--ink-soft);
   font-style: italic;
 }
+
+/* Drop-in cell content that stays on one line and ellipses on overflow.
+   Used in tables where a long string (drawing title, etc.) would
+   otherwise wrap the row. Hover the cell to see the full text. */
+.cell-truncate {
+  display: block;
+  max-width: 360px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Compact metadata cell — slightly smaller than body text, single line. */
+.col-meta {
+  font-size: 12px;
+  white-space: nowrap;
+}

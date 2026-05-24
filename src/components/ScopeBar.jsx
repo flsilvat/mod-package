@@ -34,7 +34,7 @@ export default function ScopeBar() {
         id: p.id,
         label: `TO ${to?.toNumber ?? '?'} · ${p.partLabel}`,
         sublabel: config
-          ? `${config.name}${sb ? ` · ${sb.sbRef}` : ''}`
+          ? `${config.name}${sb ? ` · ${sb.sbRef}${sb.rev ? ` rev ${sb.rev}` : ''}` : ''}`
           : '(no config assigned)',
         sortKey: `${to?.toNumber ?? ''} ${p.partLabel}`.toLowerCase(),
       });

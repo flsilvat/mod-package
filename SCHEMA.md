@@ -40,7 +40,13 @@ Collection names live in one place: `src/lib/collections.js`.
 `registration` · `fleetType` · `createdAt`
 
 ### `serviceBulletins` — SERVICE_BULLETIN
-`sbRef` · `title` · `drawingIds[]` · `materials[{materialId, qty}]`
+`sbRef` · `rev` · `title` · `drawingIds[]` ·
+`materials[{materialId, qty}]`
+
+`rev` is a free-text revision string (e.g. "A", "Rev 2", "Original Issue").
+Optional — empty for SBs that haven't been formally issued yet. Changing
+the rev updates the display everywhere the SB is referenced; nothing is
+snapshot-versioned on linked TOs, drawings, or parts.
 
 ### `sbConfigs` — SB_CONFIG
 Belongs to one service bulletin. Groups the aircraft a config applies to.
@@ -49,6 +55,10 @@ Belongs to one service bulletin. Groups the aircraft a config applies to.
 ### `drawings` — DRAWING
 `docNumber` · `rev` · `title` · `refDrawingIds[]` (recursive) ·
 `materials[{materialId, qty}]` · `sbConfigIds[]`
+
+`sbConfigIds[]` lists the SB configurations the drawing applies to. An empty
+list means it applies to *all* configurations of its bulletin — only the
+exceptions are tagged. This drives each configuration's materials bucket.
 
 ### `materials` — MATERIAL
 A part. If `isKit` is true, `components` lists what it contains — and any of
@@ -76,6 +86,22 @@ A single SAP step. Belongs to one GTL.
 `gtlId` · `opNumber` · `text` · `drawingIds[]` ·
 `materials[{materialId, qty, fromKitId?}]`
 
+`fromKitId` is the id of the kit this material was cracked from. Absent (or
+null) means the material is loose, or — if the material is itself a kit —
+that it was assigned as a whole. Set, it must point to a kit that has this
+material as a direct component.
+
+### `interchangeGroups` — INTERCHANGE_GROUP
+An equivalence class of materials that can be used in place of each other.
+`materialIds[]` · `note`
+
+Symmetric and transitive within the group — every member is interchangeable
+with every other member. `note` is a short free-text justification for the
+link (e.g. "vendor alternate per EO 12345"). A material belongs to at most
+one group. A group with fewer than two members is meaningless and is
+deleted automatically. The bucket reconciliation treats an op-material entry
+as satisfying a bucket line whose materialId is anywhere in the same group.
+
 ### `userRoles` — access control
 Not a data-model entity. One document per person; the document **id is their
 email** (lowercase). Field: `role` — either `admin` or `viewer`.
@@ -86,7 +112,7 @@ An admin can read and change everything; a viewer can only read.
 - SERVICE_BULLETIN has many SB_CONFIG
 - SB_CONFIG groups many AIRCRAFT (many-to-many)
 - SERVICE_BULLETIN references many DRAWING and many MATERIAL
-- DRAWING references many DRAWING (recursive), MATERIAL, SB_CONFIG
+- DRAWING references many DRAWING (recursive), MATERIAL, AIRCRAFT
 - MATERIAL contains many MATERIAL (recursive — kits)
 - TECHNICAL_ORDER built from one SERVICE_BULLETIN, split into many TO_PART
 - TO_PART covers one SB_CONFIG, uses one HTL

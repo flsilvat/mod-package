@@ -101,7 +101,8 @@ export default function TechnicalOrdersPage() {
       const sb = sbById.get(t.sbId);
       return (
         t.toNumber.toLowerCase().includes(q) ||
-        (sb && sb.sbRef.toLowerCase().includes(q))
+        (sb && sb.sbRef.toLowerCase().includes(q)) ||
+        (sb && (sb.rev || '').toLowerCase().includes(q))
       );
     });
   }, [tos, filter, sbById]);
@@ -228,6 +229,7 @@ export default function TechnicalOrdersPage() {
                     {sbs.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.sbRef}
+                        {s.rev ? ` rev ${s.rev}` : ''}
                         {s.title ? ` — ${s.title}` : ''}
                       </option>
                     ))}
@@ -325,7 +327,12 @@ export default function TechnicalOrdersPage() {
                       <td className="mono strong">{t.toNumber}</td>
                       <td className="mono">
                         {sb ? (
-                          sb.sbRef
+                          <>
+                            {sb.sbRef}
+                            {sb.rev && (
+                              <span className="dim"> rev {sb.rev}</span>
+                            )}
+                          </>
                         ) : (
                           <span className="dim">(missing bulletin)</span>
                         )}

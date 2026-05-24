@@ -32,6 +32,7 @@ export default function ServiceBulletinsPage() {
 
   // Add form
   const [sbRef, setSbRef] = useState('');
+  const [rev, setRev] = useState('');
   const [title, setTitle] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -102,13 +103,14 @@ export default function ServiceBulletinsPage() {
     return sbs.filter((s) => scope.sbIds.has(s.id));
   }, [sbs, scope.sbIds]);
 
-  // Quick filter — matches SB reference or title.
+  // Quick filter — matches SB reference, rev or title.
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return scopedSbs;
     return scopedSbs.filter(
       (s) =>
         s.sbRef.toLowerCase().includes(q) ||
+        (s.rev || '').toLowerCase().includes(q) ||
         (s.title || '').toLowerCase().includes(q)
     );
   }, [scopedSbs, filter]);
@@ -126,12 +128,14 @@ export default function ServiceBulletinsPage() {
     try {
       await addDoc(collection(db, COLLECTIONS.SERVICE_BULLETIN), {
         sbRef: ref,
+        rev: rev.trim(),
         title: title.trim(),
         drawingIds: [],
         materials: [],
         createdAt: serverTimestamp(),
       });
       setSbRef('');
+      setRev('');
       setTitle('');
     } catch (err) {
       setError(err.message);
@@ -149,6 +153,7 @@ export default function ServiceBulletinsPage() {
       existing.add(ref.toLowerCase());
       toAdd.push({
         sbRef: ref,
+        rev: (row.rev || '').trim(),
         title: (row.title || '').trim(),
         drawingIds: [],
         materials: [],
@@ -194,7 +199,7 @@ export default function ServiceBulletinsPage() {
     });
   }
 
-  const colSpan = isAdmin ? 5 : 4;
+  const colSpan = isAdmin ? 6 : 5;
 
   return (
     <div className="page">
@@ -223,6 +228,17 @@ export default function ServiceBulletinsPage() {
                 autoComplete="off"
               />
             </div>
+            <div className="field field-rev">
+              <label htmlFor="sbrev">Rev</label>
+              <input
+                id="sbrev"
+                className="input mono"
+                placeholder="A"
+                value={rev}
+                onChange={(e) => setRev(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
             <div className="field field-wide">
               <label htmlFor="sbtitle">Title</label>
               <input
@@ -245,6 +261,7 @@ export default function ServiceBulletinsPage() {
             onImport={importSBs}
             fields={[
               { key: 'sbRef', label: 'SB reference', required: true },
+              { key: 'rev', label: 'Rev' },
               { key: 'title', label: 'Title' },
             ]}
           />
@@ -281,6 +298,7 @@ export default function ServiceBulletinsPage() {
               <tr>
                 <th className="col-caret" />
                 <th>SB reference</th>
+                <th>Rev</th>
                 <th>Title</th>
                 <th>Contents</th>
                 {isAdmin && <th className="col-action" />}
@@ -305,6 +323,9 @@ export default function ServiceBulletinsPage() {
                         </button>
                       </td>
                       <td className="mono strong">{sb.sbRef}</td>
+                      <td className="mono">
+                        {sb.rev || <span className="dim">—</span>}
+                      </td>
                       <td>{sb.title || <span className="dim">—</span>}</td>
                       <td className="dim">
                         {sbConfigs.length} config

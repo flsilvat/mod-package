@@ -39,6 +39,11 @@ export default function SBDetail({
     if (!v || v === sb.sbRef) return;
     await updateDoc(sbRef, { sbRef: v });
   }
+  async function updateRev(value) {
+    const v = (value || '').trim();
+    if (v === (sb.rev || '')) return;
+    await updateDoc(sbRef, { rev: v });
+  }
   async function updateTitle(value) {
     const v = (value || '').trim();
     if (v === (sb.title || '')) return;
@@ -135,6 +140,15 @@ export default function SBDetail({
                 defaultValue={sb.sbRef}
                 key={'r' + sb.sbRef}
                 onBlur={(e) => updateSbRef(e.target.value)}
+              />
+            </div>
+            <div className="field field-rev">
+              <label>Rev</label>
+              <input
+                className="input mono"
+                defaultValue={sb.rev || ''}
+                key={'rv' + (sb.rev || '')}
+                onBlur={(e) => updateRev(e.target.value)}
               />
             </div>
             <div className="field field-wide">

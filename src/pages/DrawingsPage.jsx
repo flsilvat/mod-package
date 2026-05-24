@@ -324,8 +324,14 @@ export default function DrawingsPage() {
                       <td className="mono">
                         {d.rev || <span className="dim">—</span>}
                       </td>
-                      <td>{d.title || <span className="dim">—</span>}</td>
-                      <td className="dim">
+                      <td title={d.title || ''}>
+                        {d.title ? (
+                          <span className="cell-truncate">{d.title}</span>
+                        ) : (
+                          <span className="dim">—</span>
+                        )}
+                      </td>
+                      <td className="dim col-meta">
                         {matCount} material{matCount === 1 ? '' : 's'} ·{' '}
                         {cfgCount === 0
                           ? 'all configs'

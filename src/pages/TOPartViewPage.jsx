@@ -237,7 +237,7 @@ export default function TOPartViewPage() {
       <div className="page-head">
         <p className="eyebrow">
           {to ? to.toNumber : '(unknown TO)'}
-          {sb ? ` · built from ${sb.sbRef}` : ''}
+          {sb ? ` · built from ${sb.sbRef}${sb.rev ? ` rev ${sb.rev}` : ''}` : ''}
         </p>
         <h1>{to ? `TO ${to.toNumber} ${part.partLabel}` : part.partLabel}</h1>
         <p className="lede">

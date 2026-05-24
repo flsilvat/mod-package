@@ -79,8 +79,16 @@ export default function TODetail({
             margin: '0 0 12px',
           }}
         >
-          Built from bulletin {sb ? sb.sbRef : '(missing bulletin)'}. Each part
-          covers one of its configurations and points to one HTL.
+          Built from bulletin{' '}
+          {sb ? (
+            <>
+              {sb.sbRef}
+              {sb.rev ? ` rev ${sb.rev}` : ''}
+            </>
+          ) : (
+            '(missing bulletin)'
+          )}
+          . Each part covers one of its configurations and points to one HTL.
         </p>
 
         {sortedParts.length === 0 ? (
