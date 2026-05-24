@@ -15,8 +15,10 @@ import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
 import { chunk } from '../lib/batch';
+import { useSort } from '../lib/useSort';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
+import SortableHeader from '../components/SortableHeader';
 
 // A starter list of fleet types — free text is still allowed.
 const FLEET_TYPES = ['777-200', '777-300', '787-8', '787-9', '787-10', 'A320', 'A350-1000'];
@@ -65,6 +67,19 @@ export default function AircraftPage() {
         (a.fleetType || '').toLowerCase().includes(q)
     );
   }, [aircraft, filter]);
+
+  const sortColumns = useMemo(
+    () => ({
+      registration: (a) => a.registration || '',
+      fleetType: (a) => a.fleetType || '',
+    }),
+    []
+  );
+  const { sorted, sortKey, sortDir, toggle } = useSort(
+    filtered,
+    sortColumns,
+    'registration'
+  );
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -236,13 +251,25 @@ export default function AircraftPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Registration</th>
-                <th>Fleet type</th>
+                <SortableHeader
+                  label="Registration"
+                  column="registration"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Fleet type"
+                  column="fleetType"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
                 {isAdmin && <th className="col-action" />}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((ac) => (
+              {sorted.map((ac) => (
                 <tr key={ac.id}>
                   <td className={isAdmin ? '' : 'mono strong'}>
                     {isAdmin ? (

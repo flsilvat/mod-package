@@ -14,9 +14,11 @@ import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
 import { chunk } from '../lib/batch';
+import { useSort } from '../lib/useSort';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
 import TODetail from '../components/TODetail';
+import SortableHeader from '../components/SortableHeader';
 
 export default function TechnicalOrdersPage() {
   const { isAdmin } = useAuth();
@@ -106,6 +108,20 @@ export default function TechnicalOrdersPage() {
       );
     });
   }, [tos, filter, sbById]);
+
+  const sortColumns = useMemo(
+    () => ({
+      toNumber: (t) => t.toNumber || '',
+      builtFrom: (t) => sbById.get(t.sbId)?.sbRef || '',
+      parts: (t) => parts.filter((p) => p.technicalOrderId === t.id).length,
+    }),
+    [sbById, parts]
+  );
+  const { sorted, sortKey, sortDir, toggle } = useSort(
+    filtered,
+    sortColumns,
+    'toNumber'
+  );
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -299,14 +315,32 @@ export default function TechnicalOrdersPage() {
             <thead>
               <tr>
                 <th className="col-caret" />
-                <th>TO number</th>
-                <th>Built from</th>
-                <th>Parts</th>
+                <SortableHeader
+                  label="TO number"
+                  column="toNumber"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Built from"
+                  column="builtFrom"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Parts"
+                  column="parts"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
                 {isAdmin && <th className="col-action" />}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((t) => {
+              {sorted.map((t) => {
                 const sb = sbById.get(t.sbId);
                 const toParts = parts.filter(
                   (p) => p.technicalOrderId === t.id

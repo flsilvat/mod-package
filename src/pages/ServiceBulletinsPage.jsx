@@ -14,9 +14,11 @@ import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
 import { useScope } from '../lib/scope';
 import { chunk } from '../lib/batch';
+import { useSort } from '../lib/useSort';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
 import SBDetail from '../components/SBDetail';
+import SortableHeader from '../components/SortableHeader';
 
 export default function ServiceBulletinsPage() {
   const { isAdmin } = useAuth();
@@ -114,6 +116,25 @@ export default function ServiceBulletinsPage() {
         (s.title || '').toLowerCase().includes(q)
     );
   }, [scopedSbs, filter]);
+
+  // Sort — counts roll up configs + drawings + materials into one number.
+  const sortColumns = useMemo(
+    () => ({
+      sbRef: (s) => s.sbRef || '',
+      rev: (s) => s.rev || '',
+      title: (s) => s.title || '',
+      contents: (s) =>
+        configs.filter((c) => c.sbId === s.id).length +
+        (Array.isArray(s.drawingIds) ? s.drawingIds.length : 0) +
+        (Array.isArray(s.materials) ? s.materials.length : 0),
+    }),
+    [configs]
+  );
+  const { sorted, sortKey, sortDir, toggle } = useSort(
+    filtered,
+    sortColumns,
+    'sbRef'
+  );
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -297,15 +318,39 @@ export default function ServiceBulletinsPage() {
             <thead>
               <tr>
                 <th className="col-caret" />
-                <th>SB reference</th>
-                <th>Rev</th>
-                <th>Title</th>
-                <th>Contents</th>
+                <SortableHeader
+                  label="SB reference"
+                  column="sbRef"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Rev"
+                  column="rev"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Title"
+                  column="title"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Contents"
+                  column="contents"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
                 {isAdmin && <th className="col-action" />}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((sb) => {
+              {sorted.map((sb) => {
                 const sbConfigs = configs.filter((c) => c.sbId === sb.id);
                 const drawCount = (sb.drawingIds || []).length;
                 const matCount = (sb.materials || []).length;

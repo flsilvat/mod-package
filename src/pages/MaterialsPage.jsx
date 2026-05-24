@@ -17,11 +17,13 @@ import { useAuth } from '../lib/auth';
 import { useScope } from '../lib/scope';
 import { collectDescendants, wouldCreateCycle } from '../lib/materials';
 import { chunk } from '../lib/batch';
+import { useSort } from '../lib/useSort';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
 import MultiSelect from '../components/MultiSelect';
 import AlternatesChip from '../components/AlternatesChip';
 import AlternatesSection from '../components/AlternatesSection';
+import SortableHeader from '../components/SortableHeader';
 
 export default function MaterialsPage() {
   const { isAdmin } = useAuth();
@@ -115,6 +117,24 @@ export default function MaterialsPage() {
     () => scopedMaterials.filter((m) => m.isKit).map((m) => m.id),
     [scopedMaterials]
   );
+
+  // Sortable columns. View.list is the post-filter set; we sort that.
+  const sortColumns = useMemo(
+    () => ({
+      partNumber: (m) => m.partNumber || '',
+      description: (m) => m.description || '',
+      type: (m) => (m.isKit ? 'kit' : 'part'),
+      components: (m) =>
+        Array.isArray(m.components) ? m.components.length : 0,
+    }),
+    []
+  );
+  const { sorted: sortedList, sortKey, sortDir, toggle } = useSort(
+    view.list,
+    sortColumns,
+    'partNumber'
+  );
+
   const allKitsOpen =
     kitIds.length > 0 && kitIds.every((id) => expanded.has(id));
 
@@ -338,15 +358,39 @@ export default function MaterialsPage() {
             <thead>
               <tr>
                 <th className="col-caret" />
-                <th>Part number</th>
-                <th>Description</th>
-                <th>Type</th>
-                <th>Contents</th>
+                <SortableHeader
+                  label="Part number"
+                  column="partNumber"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Description"
+                  column="description"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Type"
+                  column="type"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Contents"
+                  column="components"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
                 {isAdmin && <th className="col-action" />}
               </tr>
             </thead>
             <tbody>
-              {view.list.map((m) => {
+              {sortedList.map((m) => {
                 const isOpen =
                   expanded.has(m.id) || view.autoExpand.has(m.id);
                 const isMatch = view.matched.has(m.id);

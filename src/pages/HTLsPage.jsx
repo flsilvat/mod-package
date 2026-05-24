@@ -15,9 +15,11 @@ import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
 import { useScope } from '../lib/scope';
 import { chunk } from '../lib/batch';
+import { useSort } from '../lib/useSort';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
 import HTLDetail from '../components/HTLDetail';
+import SortableHeader from '../components/SortableHeader';
 
 export default function HTLsPage() {
   const { isAdmin } = useAuth();
@@ -102,6 +104,22 @@ export default function HTLsPage() {
     if (!q) return scopedHtls;
     return scopedHtls.filter((h) => h.htlRef.toLowerCase().includes(q));
   }, [scopedHtls, filter]);
+
+  // Sort: contents = children + aircraft count.
+  const sortColumns = useMemo(
+    () => ({
+      htlRef: (h) => h.htlRef || '',
+      contents: (h) =>
+        (Array.isArray(h.children) ? h.children.length : 0) +
+        (Array.isArray(h.aircraftIds) ? h.aircraftIds.length : 0),
+    }),
+    []
+  );
+  const { sorted, sortKey, sortDir, toggle } = useSort(
+    filtered,
+    sortColumns,
+    'htlRef'
+  );
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -249,13 +267,25 @@ export default function HTLsPage() {
             <thead>
               <tr>
                 <th className="col-caret" />
-                <th>HTL reference</th>
-                <th>Contents</th>
+                <SortableHeader
+                  label="HTL reference"
+                  column="htlRef"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Contents"
+                  column="contents"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
                 {isAdmin && <th className="col-action" />}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((h) => {
+              {sorted.map((h) => {
                 const ch = Array.isArray(h.children) ? h.children : [];
                 const gtlCount = ch.filter((c) => c.type === 'gtl').length;
                 const htlCount = ch.filter((c) => c.type === 'htl').length;

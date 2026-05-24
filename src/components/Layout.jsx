@@ -85,7 +85,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.16.1 · SB rev</span>
+        <span className="footer-build">v0.16.2 · sortable columns</span>
       </footer>
     </div>
   );

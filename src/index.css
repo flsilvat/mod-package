@@ -1446,3 +1446,32 @@ a {
   font-size: 12px;
   white-space: nowrap;
 }
+
+/* ---------- sortable table headers ---------- */
+
+/* A header label that doubles as a button — clicking sorts that column.
+   Inherits the th typography so the table style stays consistent. */
+.th-sort {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-align: left;
+}
+.th-sort:hover {
+  color: var(--ink);
+}
+.th-sort.is-active {
+  color: var(--ink);
+}
+.th-sort-arrow {
+  font-size: 10px;
+  opacity: 0.75;
+  min-width: 8px;
+}

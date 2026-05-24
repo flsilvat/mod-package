@@ -22,6 +22,8 @@ import FilterBar from '../components/FilterBar';
 import MultiSelect from '../components/MultiSelect';
 import KitContents from '../components/KitContents';
 import AlternatesChip from '../components/AlternatesChip';
+import SortableHeader from '../components/SortableHeader';
+import { useSort } from '../lib/useSort';
 
 export default function DrawingsPage() {
   const { isAdmin } = useAuth();
@@ -121,6 +123,24 @@ export default function DrawingsPage() {
         (d.title || '').toLowerCase().includes(q)
     );
   }, [scopedDrawings, filter]);
+
+  const sortColumns = useMemo(
+    () => ({
+      docNumber: (d) => d.docNumber || '',
+      rev: (d) => d.rev || '',
+      title: (d) => d.title || '',
+      contents: (d) =>
+        (Array.isArray(d.materials) ? d.materials.length : 0) +
+        (Array.isArray(d.sbConfigIds) ? d.sbConfigIds.length : 0) +
+        (Array.isArray(d.refDrawingIds) ? d.refDrawingIds.length : 0),
+    }),
+    []
+  );
+  const { sorted, sortKey, sortDir, toggle } = useSort(
+    filtered,
+    sortColumns,
+    'docNumber'
+  );
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -295,15 +315,39 @@ export default function DrawingsPage() {
             <thead>
               <tr>
                 <th className="col-caret" />
-                <th>Document</th>
-                <th>Rev</th>
-                <th>Title</th>
-                <th>Contents</th>
+                <SortableHeader
+                  label="Document"
+                  column="docNumber"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Rev"
+                  column="rev"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Title"
+                  column="title"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Contents"
+                  column="contents"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
                 {isAdmin && <th className="col-action" />}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((d) => {
+              {sorted.map((d) => {
                 const matCount = (d.materials || []).length;
                 const cfgCount = (d.sbConfigIds || []).length;
                 const refCount = (d.refDrawingIds || []).length;

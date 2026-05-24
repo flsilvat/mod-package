@@ -14,9 +14,11 @@ import { COLLECTIONS } from '../lib/collections';
 import { useAuth } from '../lib/auth';
 import { useScope } from '../lib/scope';
 import { chunk } from '../lib/batch';
+import { useSort } from '../lib/useSort';
 import BatchInput from '../components/BatchInput';
 import FilterBar from '../components/FilterBar';
 import GTLDetail from '../components/GTLDetail';
+import SortableHeader from '../components/SortableHeader';
 
 export default function GTLsPage() {
   const { isAdmin } = useAuth();
@@ -100,6 +102,22 @@ export default function GTLsPage() {
     if (!q) return scopedGtls;
     return scopedGtls.filter((g) => g.gtlRef.toLowerCase().includes(q));
   }, [scopedGtls, filter]);
+
+  // Sort: contents = ops + aircraft count.
+  const sortColumns = useMemo(
+    () => ({
+      gtlRef: (g) => g.gtlRef || '',
+      contents: (g) =>
+        operations.filter((o) => o.gtlId === g.id).length +
+        (Array.isArray(g.aircraftIds) ? g.aircraftIds.length : 0),
+    }),
+    [operations]
+  );
+  const { sorted, sortKey, sortDir, toggle } = useSort(
+    filtered,
+    sortColumns,
+    'gtlRef'
+  );
 
   async function handleAdd(event) {
     event.preventDefault();
@@ -246,13 +264,25 @@ export default function GTLsPage() {
             <thead>
               <tr>
                 <th className="col-caret" />
-                <th>GTL reference</th>
-                <th>Contents</th>
+                <SortableHeader
+                  label="GTL reference"
+                  column="gtlRef"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
+                  label="Contents"
+                  column="contents"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
                 {isAdmin && <th className="col-action" />}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((g) => {
+              {sorted.map((g) => {
                 const ops = operations.filter((o) => o.gtlId === g.id);
                 const acCount = (g.aircraftIds || []).length;
                 const isOpen = expanded.has(g.id);
