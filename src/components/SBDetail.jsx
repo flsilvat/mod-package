@@ -13,6 +13,7 @@ import { computeConfigBucket, kitTally, collectDrawingsForConfig } from '../lib/
 import BatchInput from './BatchInput';
 import MultiSelect from './MultiSelect';
 import KitContents from './KitContents';
+import CollapsibleKitTree from './CollapsibleKitTree';
 import AlternatesChip from './AlternatesChip';
 
 // ----- expanded view for one Service Bulletin -----
@@ -493,7 +494,7 @@ function ConfigCard({
                   </li>
                   {kitOpen && (
                     <li className="kit-subtree">
-                      <KitContents
+                      <CollapsibleKitTree
                         components={comps}
                         byId={materialById}
                         seen={new Set([m.id])}

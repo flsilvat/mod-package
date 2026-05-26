@@ -21,6 +21,10 @@ export const COLLECTIONS = {
   // free-text note (the justification) and a list of materialIds.
   INTERCHANGE_GROUP: 'interchangeGroups',
 
+  // A project — a group of TOs and/or TO Parts, used for cross-cutting
+  // dashboards and SAP/PDF exports.
+  PROJECT: 'projects',
+
   // Access control — one doc per person, id = their email, field: role.
   USER_ROLES: 'userRoles',
 };

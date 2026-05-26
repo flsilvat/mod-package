@@ -36,6 +36,7 @@ export function ScopeProvider({ children }) {
   const [drawings, setDrawings] = useState([]);
   const [htls, setHtls] = useState([]);
   const [interchangeGroups, setInterchangeGroups] = useState([]);
+  const [aircraft, setAircraft] = useState([]);
 
   useEffect(() => {
     const subs = [
@@ -65,6 +66,9 @@ export function ScopeProvider({ children }) {
         setInterchangeGroups(
           snap.docs.map((d) => ({ id: d.id, ...d.data() }))
         )
+      ),
+      onSnapshot(collection(db, COLLECTIONS.AIRCRAFT), (snap) =>
+        setAircraft(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       ),
     ];
     return () => subs.forEach((u) => u());
@@ -118,6 +122,12 @@ export function ScopeProvider({ children }) {
     () => buildGroupByMaterialId(interchangeGroups),
     [interchangeGroups]
   );
+
+  const aircraftById = useMemo(() => {
+    const m = new Map();
+    for (const x of aircraft) m.set(x.id, x);
+    return m;
+  }, [aircraft]);
 
   // The user's items resolve to a set of SB Config IDs.
   const configIds = useMemo(
@@ -197,6 +207,11 @@ export function ScopeProvider({ children }) {
     interchangeGroups,
     alternatesMap,
     groupByMaterialId,
+    // drawings + aircraft for cross-cutting pages (project view, etc.)
+    drawings,
+    drawingById,
+    aircraft,
+    aircraftById,
   };
 
   return (

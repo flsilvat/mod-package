@@ -110,6 +110,17 @@ one group. A group with fewer than two members is meaningless and is
 deleted automatically. The bucket reconciliation treats an op-material entry
 as satisfying a bucket line whose materialId is anywhere in the same group.
 
+### `projects` — PROJECT
+A grouping of whole TOs and/or specific TO Parts used for cross-cutting
+dashboards and SAP/PDF exports.
+`name` · `description?` · `members[]`
+
+Each `members[i]` is `{ type: 'to' | 'toPart', id }`. For `type: 'to'` the
+member implicitly includes every TO Part currently under that TO (resolved
+at read time — parts added later to the same TO are picked up automatically).
+For `type: 'toPart'` the member is one specific part. Listing the same TO
+Part both directly and via its parent TO just dedupes; nothing breaks.
+
 ### `userRoles` — access control
 Not a data-model entity. One document per person; the document **id is their
 email** (lowercase). Field: `role` — either `admin` or `viewer`.

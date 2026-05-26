@@ -24,6 +24,7 @@ const NAV = [
   { to: '/gtls', label: 'GTLs', ready: true },
   { to: '/htls', label: 'HTLs', ready: true },
   { to: '/technical-orders', label: 'Technical Orders', ready: true },
+  { to: '/projects', label: 'Projects', ready: true },
 ];
 
 export default function Layout() {
@@ -85,7 +86,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.17 · SAP DIR + drawings per config</span>
+        <span className="footer-build">v0.18.1 · merged project groups</span>
       </footer>
     </div>
   );

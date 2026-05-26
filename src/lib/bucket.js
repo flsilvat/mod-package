@@ -79,6 +79,25 @@ export function computeConfigBucket(config, { sb, drawingById, materialById }) {
   return lines;
 }
 
+// Merge multiple per-config buckets into a single bucket, summing quantities
+// per materialId. Used by the Project view when groups span multiple TO
+// Parts (same aircraft set, different SB configs).
+export function mergeBuckets(buckets) {
+  const totals = new Map();
+  for (const bucket of buckets) {
+    for (const line of bucket) {
+      if (!line || !line.materialId) continue;
+      const q = Number(line.qty) || 0;
+      if (q <= 0) continue;
+      totals.set(line.materialId, (totals.get(line.materialId) || 0) + q);
+    }
+  }
+  return [...totals.entries()].map(([materialId, qty]) => ({
+    materialId,
+    qty,
+  }));
+}
+
 // Recursively tally what a kit holds: total leaf parts (quantity-aware) and
 // how many nested subkit instances sit inside it.
 export function kitTally(kitId, materialById, seen = new Set()) {

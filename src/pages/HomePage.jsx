@@ -11,6 +11,7 @@ const ENTITIES = [
   { name: 'GTLs', status: 'ready', note: 'Reusable ordered task lists.' },
   { name: 'Operations', status: 'ready', note: 'Individual SAP step text.' },
   { name: 'HTLs', status: 'ready', note: 'The recursive task-list tree.' },
+  { name: 'Projects', status: 'ready', note: 'Groups of TOs and TO Parts for cross-cutting views and exports.' },
 ];
 
 export default function HomePage() {

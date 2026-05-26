@@ -1483,3 +1483,160 @@ a {
   opacity: 0.75;
   min-width: 8px;
 }
+
+/* ---------- project view: legend + matrix ---------- */
+
+/* Group legend — one card per TO Part, shown above both matrices. */
+.project-legend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+.project-legend-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--surface-soft, #fafafa);
+}
+.project-legend-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+.project-legend-index {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--accent, #2b5a8b);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  font-family: var(--mono);
+}
+.project-legend-sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+.project-legend-aircraft {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.chip-sm {
+  font-size: 11px;
+  padding: 1px 6px;
+}
+
+/* The matrix table itself — narrow, tabular, scrolls horizontally if the
+   number of groups exceeds viewport width. */
+.matrix-wrap {
+  overflow-x: auto;
+}
+.matrix {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+.matrix thead th {
+  text-align: left;
+  vertical-align: bottom;
+  padding: 8px 10px;
+  border-bottom: 2px solid var(--border);
+  font-weight: 600;
+  color: var(--ink-soft);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.matrix .matrix-col {
+  text-align: center;
+  width: 56px;
+}
+.matrix-col-index {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--accent, #2b5a8b);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+.matrix tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-soft, #eee);
+}
+.matrix .matrix-section td {
+  padding: 14px 10px 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-soft, #fafafa);
+}
+.matrix .matrix-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+.matrix .matrix-row-label {
+  vertical-align: middle;
+}
+.matrix-row-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.matrix-tick {
+  color: var(--accent, #2b5a8b);
+  font-size: 14px;
+}
+.matrix-qty {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 13px;
+}
+.matrix .matrix-subrow td {
+  background: var(--surface-soft, #fafafa);
+  padding: 8px 16px 12px 40px;
+}
+
+/* Each card may host multiple TO Part members when two or more parts share
+   the same aircraft set (and thus collapse into one group). */
+.project-legend-members {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+.project-legend-member {
+  padding-left: 8px;
+  border-left: 2px solid var(--border, #e5e5e5);
+}
+.project-legend-members .project-legend-member + .project-legend-member {
+  margin-top: 2px;
+}
+.project-legend-member-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+}
+/* Single-line SB title under the SB ref + config line. Truncates with
+   ellipsis when long; hover the cell to read the full title. */
+.project-legend-title {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
