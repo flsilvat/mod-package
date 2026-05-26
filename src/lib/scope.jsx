@@ -146,12 +146,8 @@ export function ScopeProvider({ children }) {
 
   const drawingIds = useMemo(() => {
     if (configIds.size === 0) return null;
-    return drawingIdsForConfigs(configIds, {
-      configsById,
-      sbsById,
-      drawingById,
-    });
-  }, [configIds, configsById, sbsById, drawingById]);
+    return drawingIdsForConfigs(configIds, { drawingById });
+  }, [configIds, drawingById]);
 
   const sbIds = useMemo(() => {
     if (configIds.size === 0) return null;
@@ -252,19 +248,18 @@ export function materialIdsForConfigs(
 
 export function drawingIdsForConfigs(
   configIds,
-  { configsById, sbsById, drawingById }
+  { drawingById }
 ) {
   const out = new Set();
-  for (const configId of configIds) {
-    const config = configsById.get(configId);
-    if (!config) continue;
-    const sb = sbsById.get(config.sbId);
-    if (!sb || !Array.isArray(sb.drawingIds)) continue;
-    for (const drawingId of sb.drawingIds) {
-      const drawing = drawingById.get(drawingId);
-      if (!drawing || !drawingAppliesToConfig(drawing, configId)) continue;
-      collectRefDescendants(drawingId, drawingById, out);
+  for (const drawing of drawingById.values()) {
+    let hits = false;
+    for (const configId of configIds) {
+      if (drawingAppliesToConfig(drawing, configId)) {
+        hits = true;
+        break;
+      }
     }
+    if (hits) collectRefDescendants(drawing.id, drawingById, out);
   }
   return out;
 }

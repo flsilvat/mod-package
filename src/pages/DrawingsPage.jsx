@@ -39,6 +39,7 @@ export default function DrawingsPage() {
   // Add form
   const [docNumber, setDocNumber] = useState('');
   const [rev, setRev] = useState('');
+  const [sapDir, setSapDir] = useState('');
   const [title, setTitle] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -112,7 +113,7 @@ export default function DrawingsPage() {
     return drawings.filter((d) => scope.drawingIds.has(d.id));
   }, [drawings, scope.drawingIds]);
 
-  // Quick filter — matches document number, rev or title.
+  // Quick filter — matches document number, rev, SAP DIR or title.
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return scopedDrawings;
@@ -120,6 +121,7 @@ export default function DrawingsPage() {
       (d) =>
         d.docNumber.toLowerCase().includes(q) ||
         (d.rev || '').toLowerCase().includes(q) ||
+        (d.sapDir || '').toLowerCase().includes(q) ||
         (d.title || '').toLowerCase().includes(q)
     );
   }, [scopedDrawings, filter]);
@@ -128,6 +130,7 @@ export default function DrawingsPage() {
     () => ({
       docNumber: (d) => d.docNumber || '',
       rev: (d) => d.rev || '',
+      sapDir: (d) => d.sapDir || '',
       title: (d) => d.title || '',
       contents: (d) =>
         (Array.isArray(d.materials) ? d.materials.length : 0) +
@@ -156,6 +159,7 @@ export default function DrawingsPage() {
       await addDoc(collection(db, COLLECTIONS.DRAWING), {
         docNumber: dn,
         rev: rev.trim(),
+        sapDir: sapDir.trim(),
         title: title.trim(),
         materials: [],
         sbConfigIds: [],
@@ -164,6 +168,7 @@ export default function DrawingsPage() {
       });
       setDocNumber('');
       setRev('');
+      setSapDir('');
       setTitle('');
     } catch (err) {
       setError(err.message);
@@ -182,6 +187,7 @@ export default function DrawingsPage() {
       toAdd.push({
         docNumber: dn,
         rev: (row.rev || '').trim(),
+        sapDir: (row.sapDir || '').trim(),
         title: (row.title || '').trim(),
         materials: [],
         sbConfigIds: [],
@@ -217,7 +223,7 @@ export default function DrawingsPage() {
     });
   }
 
-  const colSpan = isAdmin ? 6 : 5;
+  const colSpan = isAdmin ? 7 : 6;
 
   return (
     <div className="page">
@@ -257,6 +263,17 @@ export default function DrawingsPage() {
                 autoComplete="off"
               />
             </div>
+            <div className="field field-rev">
+              <label htmlFor="sapdir">SAP DIR</label>
+              <input
+                id="sapdir"
+                className="input mono"
+                placeholder="123456"
+                value={sapDir}
+                onChange={(e) => setSapDir(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
             <div className="field field-wide">
               <label htmlFor="title">Title</label>
               <input
@@ -280,6 +297,7 @@ export default function DrawingsPage() {
             fields={[
               { key: 'docNumber', label: 'Document number', required: true },
               { key: 'rev', label: 'Rev' },
+              { key: 'sapDir', label: 'SAP DIR' },
               { key: 'title', label: 'Title' },
             ]}
           />
@@ -330,6 +348,13 @@ export default function DrawingsPage() {
                   onToggle={toggle}
                 />
                 <SortableHeader
+                  label="SAP DIR"
+                  column="sapDir"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggle={toggle}
+                />
+                <SortableHeader
                   label="Title"
                   column="title"
                   sortKey={sortKey}
@@ -364,9 +389,12 @@ export default function DrawingsPage() {
                           {isOpen ? '▾' : '▸'}
                         </button>
                       </td>
-                      <td className="mono strong">{d.docNumber}</td>
+                      <td className="mono strong cell-nowrap">{d.docNumber}</td>
                       <td className="mono">
                         {d.rev || <span className="dim">—</span>}
+                      </td>
+                      <td className="mono">
+                        {d.sapDir || <span className="dim">—</span>}
                       </td>
                       <td title={d.title || ''}>
                         {d.title ? (
@@ -377,10 +405,8 @@ export default function DrawingsPage() {
                       </td>
                       <td className="dim col-meta">
                         {matCount} material{matCount === 1 ? '' : 's'} ·{' '}
-                        {cfgCount === 0
-                          ? 'all configs'
-                          : `${cfgCount} config${cfgCount === 1 ? '' : 's'}`}{' '}
-                        · {refCount} ref{refCount === 1 ? '' : 's'}
+                        {cfgCount} config{cfgCount === 1 ? '' : 's'} ·{' '}
+                        {refCount} ref{refCount === 1 ? '' : 's'}
                       </td>
                       {isAdmin && (
                         <td className="col-action">
@@ -456,6 +482,11 @@ function DrawingDetail({
     const v = (value || '').trim();
     if (v === (drawing.rev || '')) return;
     await updateDoc(drawingRef, { rev: v });
+  }
+  async function updateSapDir(value) {
+    const v = (value || '').trim();
+    if (v === (drawing.sapDir || '')) return;
+    await updateDoc(drawingRef, { sapDir: v });
   }
   async function updateTitle(value) {
     const v = (value || '').trim();
@@ -579,6 +610,15 @@ function DrawingDetail({
                 defaultValue={drawing.rev || ''}
                 key={'rv' + (drawing.rev || '')}
                 onBlur={(e) => updateRev(e.target.value)}
+              />
+            </div>
+            <div className="field field-rev">
+              <label>SAP DIR</label>
+              <input
+                className="input mono"
+                defaultValue={drawing.sapDir || ''}
+                key={'sd' + (drawing.sapDir || '')}
+                onBlur={(e) => updateSapDir(e.target.value)}
               />
             </div>
             <div className="field field-wide">
@@ -729,7 +769,10 @@ function DrawingDetail({
             options={addableRefs.map((d) => ({
               id: d.id,
               label: d.docNumber,
-              sublabel: (d.rev ? `rev ${d.rev}  ` : '') + (d.title || ''),
+              sublabel:
+                (d.rev ? `rev ${d.rev}  ` : '') +
+                (d.sapDir ? `(${d.sapDir})  ` : '') +
+                (d.title || ''),
             }))}
           />
         )}
@@ -741,8 +784,8 @@ function DrawingDetail({
 
         {cfgLinks.length === 0 ? (
           <p className="kit-empty">
-            No configurations selected — this drawing applies to all
-            configurations of its bulletin.
+            No configurations selected — this drawing isn't linked to any
+            configuration yet, so it won't appear in any bucket.
           </p>
         ) : (
           <div className="chip-row">
@@ -825,6 +868,7 @@ function DrawingRefTree({ refIds, drawingById, seen, onRemove }) {
             <div className="kit-node-row">
               <span className="mono strong">{d.docNumber}</span>
               {d.rev && <span className="kit-qty">rev {d.rev}</span>}
+              {d.sapDir && <span className="dim">({d.sapDir})</span>}
               {d.title && <span className="kit-desc">{d.title}</span>}
               {isCycle && (
                 <span className="cycle-flag">circular — not expanded</span>

@@ -9,7 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
-import { computeConfigBucket, kitTally } from '../lib/bucket';
+import { computeConfigBucket, kitTally, collectDrawingsForConfig } from '../lib/bucket';
 import BatchInput from './BatchInput';
 import MultiSelect from './MultiSelect';
 import KitContents from './KitContents';
@@ -20,7 +20,6 @@ import AlternatesChip from './AlternatesChip';
 export default function SBDetail({
   sb,
   configs,
-  drawings,
   materials,
   aircraft,
   drawingById,
@@ -30,7 +29,6 @@ export default function SBDetail({
   isAdmin,
 }) {
   const sbRef = doc(db, COLLECTIONS.SERVICE_BULLETIN, sb.id);
-  const drawingIds = sb.drawingIds || [];
   const matLinks = sb.materials || [];
 
   // ----- inline edits for the bulletin's own fields -----
@@ -67,19 +65,6 @@ export default function SBDetail({
       createdAt: serverTimestamp(),
     });
     setConfigName('');
-  }
-
-  // ----- drawings referenced -----
-  const addableDrawings = drawings.filter((d) => !drawingIds.includes(d.id));
-
-  async function addDrawings(ids) {
-    await updateDoc(sbRef, { drawingIds: [...drawingIds, ...ids] });
-  }
-
-  async function removeDrawing(id) {
-    await updateDoc(sbRef, {
-      drawingIds: drawingIds.filter((x) => x !== id),
-    });
   }
 
   // ----- materials required -----
@@ -185,6 +170,9 @@ export default function SBDetail({
                 drawingById,
                 materialById,
               })}
+              applicableDrawings={collectDrawingsForConfig(config.id, {
+                drawingById,
+              })}
               isAdmin={isAdmin}
             />
           ))
@@ -207,51 +195,6 @@ export default function SBDetail({
               Add configuration
             </button>
           </form>
-        )}
-      </div>
-
-      {/* ---- drawings referenced ---- */}
-      <div className="detail-section">
-        <p className="detail-section-title">Drawings referenced</p>
-
-        {drawingIds.length === 0 ? (
-          <p className="kit-empty">No drawings referenced yet.</p>
-        ) : (
-          <ul className="link-list">
-            {drawingIds.map((id) => {
-              const d = drawingById.get(id);
-              return (
-                <li key={id} className="link-row">
-                  <span className="mono strong">
-                    {d ? d.docNumber : '(missing drawing)'}
-                  </span>
-                  {d?.rev && <span className="kit-qty">rev {d.rev}</span>}
-                  {d?.title && <span className="kit-desc">{d.title}</span>}
-                  {isAdmin && (
-                    <button
-                      className="kit-remove"
-                      onClick={() => removeDrawing(id)}
-                      aria-label="Remove"
-                    >
-                      ×
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {isAdmin && (
-          <MultiSelect
-            placeholder="Reference drawings…"
-            onAdd={addDrawings}
-            options={addableDrawings.map((d) => ({
-              id: d.id,
-              label: d.docNumber,
-              sublabel: (d.rev ? `rev ${d.rev}  ` : '') + (d.title || ''),
-            }))}
-          />
         )}
       </div>
 
@@ -350,6 +293,7 @@ function ConfigCard({
   aircraftById,
   materialById,
   bucket,
+  applicableDrawings,
   isAdmin,
 }) {
   const configRef = doc(db, COLLECTIONS.SB_CONFIG, config.id);
@@ -450,6 +394,42 @@ function ConfigCard({
           }))}
         />
       )}
+
+      {/* ---- applicable drawings (recursive via refs) ---- */}
+      <div className="config-bucket">
+        <p className="detail-section-title">
+          Drawings
+          {applicableDrawings.length > 0 && (
+            <span className="dim">
+              {' '}
+              · {applicableDrawings.length} drawing
+              {applicableDrawings.length === 1 ? '' : 's'}
+            </span>
+          )}
+        </p>
+
+        {applicableDrawings.length === 0 ? (
+          <p className="kit-empty">
+            No drawings reach this configuration yet — link drawings to it on
+            the Drawings page.
+          </p>
+        ) : (
+          <ul className="link-list">
+            {applicableDrawings.map((d) => (
+              <li key={d.id} className="link-row">
+                <span className="mono strong">{d.docNumber}</span>
+                {d.rev && <span className="tag tag-count">rev {d.rev}</span>}
+                {d.sapDir && <span className="dim">({d.sapDir})</span>}
+                {d.title && (
+                  <span className="kit-desc" title={d.title}>
+                    {d.title}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {/* ---- computed materials bucket ---- */}
       <div className="config-bucket">

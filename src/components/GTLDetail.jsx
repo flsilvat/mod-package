@@ -420,6 +420,9 @@ function OperationCard({
                         {d ? d.docNumber : '(missing drawing)'}
                       </span>
                       {d?.rev && <span className="kit-qty">rev {d.rev}</span>}
+                      {d?.sapDir && (
+                        <span className="dim">({d.sapDir})</span>
+                      )}
                       {d?.title && (
                         <span className="kit-desc">{d.title}</span>
                       )}
@@ -444,7 +447,10 @@ function OperationCard({
                 options={addableDrawings.map((d) => ({
                   id: d.id,
                   label: d.docNumber,
-                  sublabel: (d.rev ? `rev ${d.rev}  ` : '') + (d.title || ''),
+                  sublabel:
+                    (d.rev ? `rev ${d.rev}  ` : '') +
+                    (d.sapDir ? `(${d.sapDir})  ` : '') +
+                    (d.title || ''),
                 }))}
               />
             )}

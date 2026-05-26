@@ -125,7 +125,6 @@ export default function ServiceBulletinsPage() {
       title: (s) => s.title || '',
       contents: (s) =>
         configs.filter((c) => c.sbId === s.id).length +
-        (Array.isArray(s.drawingIds) ? s.drawingIds.length : 0) +
         (Array.isArray(s.materials) ? s.materials.length : 0),
     }),
     [configs]
@@ -151,7 +150,6 @@ export default function ServiceBulletinsPage() {
         sbRef: ref,
         rev: rev.trim(),
         title: title.trim(),
-        drawingIds: [],
         materials: [],
         createdAt: serverTimestamp(),
       });
@@ -176,7 +174,6 @@ export default function ServiceBulletinsPage() {
         sbRef: ref,
         rev: (row.rev || '').trim(),
         title: (row.title || '').trim(),
-        drawingIds: [],
         materials: [],
         createdAt: serverTimestamp(),
       });
@@ -352,7 +349,6 @@ export default function ServiceBulletinsPage() {
             <tbody>
               {sorted.map((sb) => {
                 const sbConfigs = configs.filter((c) => c.sbId === sb.id);
-                const drawCount = (sb.drawingIds || []).length;
                 const matCount = (sb.materials || []).length;
                 const isOpen = expanded.has(sb.id);
                 return (
@@ -372,10 +368,9 @@ export default function ServiceBulletinsPage() {
                         {sb.rev || <span className="dim">—</span>}
                       </td>
                       <td>{sb.title || <span className="dim">—</span>}</td>
-                      <td className="dim">
+                      <td className="dim col-meta">
                         {sbConfigs.length} config
-                        {sbConfigs.length === 1 ? '' : 's'} · {drawCount}{' '}
-                        drawing{drawCount === 1 ? '' : 's'} · {matCount}{' '}
+                        {sbConfigs.length === 1 ? '' : 's'} · {matCount}{' '}
                         material{matCount === 1 ? '' : 's'}
                       </td>
                       {isAdmin && (
@@ -395,7 +390,6 @@ export default function ServiceBulletinsPage() {
                           <SBDetail
                             sb={sb}
                             configs={sbConfigs}
-                            drawings={drawings}
                             materials={materials}
                             aircraft={aircraft}
                             drawingById={drawingById}

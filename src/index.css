@@ -1442,6 +1442,13 @@ a {
   max-width: 360px;
 }
 
+/* Cell content kept on a single line — the cell widens to fit. Useful
+   for short identifier columns (doc numbers, part numbers) where
+   wrapping looks awkward. */
+.cell-nowrap {
+  white-space: nowrap;
+}
+
 /* Compact metadata cell — slightly smaller than body text, single line. */
 .col-meta {
   font-size: 12px;

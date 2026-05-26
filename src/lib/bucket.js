@@ -5,19 +5,44 @@
 import { collectRefDescendants } from './drawings';
 
 // Does a drawing apply to the given SB config?
-// An empty or missing sbConfigIds means the drawing applies to ALL configs
-// of its bulletin — you only tag the exceptions.
+// Drawings now point to their configs explicitly via sbConfigIds. An empty
+// or missing list means the drawing is not linked to any config — it's
+// effectively orphaned until an admin re-links it.
 export function drawingAppliesToConfig(drawing, configId) {
   const ids = drawing?.sbConfigIds;
-  if (!Array.isArray(ids) || ids.length === 0) return true;
+  if (!Array.isArray(ids) || ids.length === 0) return false;
   return ids.includes(configId);
 }
 
+// Every drawing applicable to a given config, expanded recursively through
+// refDrawingIds. Returns drawing documents sorted by docNumber. Used by the
+// per-config drawing bucket on the SB page and the Drawings section on the
+// TO Part view.
+export function collectDrawingsForConfig(configId, { drawingById }) {
+  const ids = new Set();
+  for (const drawing of drawingById.values()) {
+    if (!drawingAppliesToConfig(drawing, configId)) continue;
+    collectRefDescendants(drawing.id, drawingById, ids);
+  }
+  const out = [];
+  for (const id of ids) {
+    const d = drawingById.get(id);
+    if (d) out.push(d);
+  }
+  out.sort((a, b) =>
+    (a.docNumber || '').localeCompare(b.docNumber || '', undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    })
+  );
+  return out;
+}
+
 // The bucket for one SB config: the parent bulletin's own materials, plus
-// the materials of every referenced drawing that applies to this config —
-// following drawing-to-drawing references all the way down. Returns an
-// aggregated list of { materialId, qty }, sorted by part number. Kits are
-// left whole; their contents are not exploded here.
+// the materials of every drawing applicable to this config — following
+// drawing-to-drawing references all the way down. Returns an aggregated list
+// of { materialId, qty }, sorted by part number. Kits are left whole; their
+// contents are not exploded here.
 export function computeConfigBucket(config, { sb, drawingById, materialById }) {
   const totals = new Map();
 
@@ -30,13 +55,12 @@ export function computeConfigBucket(config, { sb, drawingById, materialById }) {
 
   if (sb && Array.isArray(sb.materials)) sb.materials.forEach(addLink);
 
+  // Reverse lookup: walk all drawings and keep those tied to this config,
+  // then recurse through their refs.
   const contributing = new Set();
-  if (sb && Array.isArray(sb.drawingIds)) {
-    for (const drawingId of sb.drawingIds) {
-      const drawing = drawingById.get(drawingId);
-      if (!drawing || !drawingAppliesToConfig(drawing, config.id)) continue;
-      collectRefDescendants(drawingId, drawingById, contributing);
-    }
+  for (const drawing of drawingById.values()) {
+    if (!drawingAppliesToConfig(drawing, config.id)) continue;
+    collectRefDescendants(drawing.id, drawingById, contributing);
   }
   for (const drawingId of contributing) {
     const drawing = drawingById.get(drawingId);

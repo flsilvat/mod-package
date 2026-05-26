@@ -40,25 +40,33 @@ Collection names live in one place: `src/lib/collections.js`.
 `registration` · `fleetType` · `createdAt`
 
 ### `serviceBulletins` — SERVICE_BULLETIN
-`sbRef` · `rev` · `title` · `drawingIds[]` ·
-`materials[{materialId, qty}]`
+`sbRef` · `rev` · `title` · `materials[{materialId, qty}]`
 
 `rev` is a free-text revision string (e.g. "A", "Rev 2", "Original Issue").
 Optional — empty for SBs that haven't been formally issued yet. Changing
 the rev updates the display everywhere the SB is referenced; nothing is
 snapshot-versioned on linked TOs, drawings, or parts.
 
+Drawings are linked to bulletins via `drawing.sbConfigIds` (reverse lookup
+against this bulletin's configs) — not via a `drawingIds` array on the SB.
+Legacy `drawingIds` fields on existing docs are ignored.
+
 ### `sbConfigs` — SB_CONFIG
 Belongs to one service bulletin. Groups the aircraft a config applies to.
 `sbId` · `name` · `aircraftIds[]`
 
 ### `drawings` — DRAWING
-`docNumber` · `rev` · `title` · `refDrawingIds[]` (recursive) ·
+`docNumber` · `rev` · `sapDir` · `title` · `refDrawingIds[]` (recursive) ·
 `materials[{materialId, qty}]` · `sbConfigIds[]`
 
+`sapDir` is a free-text identifier (typically a 6-digit number) for the
+drawing's record in SAP's document repository. Displayed as `(123456)`
+wherever the drawing is referenced from another entity.
+
 `sbConfigIds[]` lists the SB configurations the drawing applies to. An empty
-list means it applies to *all* configurations of its bulletin — only the
-exceptions are tagged. This drives each configuration's materials bucket.
+list means the drawing isn't linked to any configuration — it's effectively
+orphaned and won't appear in any bucket until configs are added. This drives
+each configuration's drawings bucket and materials bucket.
 
 ### `materials` — MATERIAL
 A part. If `isKit` is true, `components` lists what it contains — and any of

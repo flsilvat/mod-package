@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
-import { computeConfigBucket, reconcileBucket } from '../lib/bucket';
+import { computeConfigBucket, reconcileBucket, collectDrawingsForConfig } from '../lib/bucket';
 import { useScope } from '../lib/scope';
 import KitContents from '../components/KitContents';
 import AlternatesChip from '../components/AlternatesChip';
@@ -170,6 +170,9 @@ export default function TOPartViewPage() {
     config && sb
       ? computeConfigBucket(config, { sb, drawingById, materialById })
       : [];
+  const applicableDrawings = config
+    ? collectDrawingsForConfig(config.id, { drawingById })
+    : [];
   const reachableOps = htl
     ? collectReachableOperations(htl.id, htlById, operationsByGtl)
     : [];
@@ -269,6 +272,41 @@ export default function TOPartViewPage() {
               </div>
             )}
           </>
+        )}
+      </section>
+
+      {/* ---- applicable drawings ---- */}
+      <section className="panel">
+        <div className="panel-titlebar">
+          <h2 className="panel-title">Drawings</h2>
+          {applicableDrawings.length > 0 && (
+            <span className="count">{applicableDrawings.length}</span>
+          )}
+        </div>
+        {!config ? (
+          <p className="notice">
+            No configuration assigned — drawings can't be resolved yet.
+          </p>
+        ) : applicableDrawings.length === 0 ? (
+          <p className="kit-empty">
+            No drawings applicable to this configuration. Link drawings to
+            it on the Drawings page.
+          </p>
+        ) : (
+          <ul className="link-list">
+            {applicableDrawings.map((d) => (
+              <li key={d.id} className="link-row">
+                <span className="mono strong">{d.docNumber}</span>
+                {d.rev && <span className="tag tag-count">rev {d.rev}</span>}
+                {d.sapDir && <span className="dim">({d.sapDir})</span>}
+                {d.title && (
+                  <span className="kit-desc" title={d.title}>
+                    {d.title}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 
@@ -784,6 +822,9 @@ function OperationRow({ op, drawingById, materialById, isOpen, onToggle }) {
                         {d ? d.docNumber : '(missing drawing)'}
                       </span>
                       {d?.rev && <span className="kit-qty">rev {d.rev}</span>}
+                      {d?.sapDir && (
+                        <span className="dim">({d.sapDir})</span>
+                      )}
                       {d?.title && (
                         <span className="kit-desc">{d.title}</span>
                       )}
