@@ -377,6 +377,7 @@ a {
 
 .dim {
   color: var(--ink-faint);
+  font-size: 11px;
 }
 
 /* ---------- notices ---------- */
@@ -1451,7 +1452,7 @@ a {
 
 /* Compact metadata cell — slightly smaller than body text, single line. */
 .col-meta {
-  font-size: 12px;
+  
   white-space: nowrap;
 }
 
@@ -1639,4 +1640,13 @@ a {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* The SB title appended to a matrix section header — italicised and
+   slightly muted to set it apart from the SB ref / config text without
+   competing visually. */
+.matrix-section-title {
+  font-style: italic;
+  font-weight: normal;
+  color: var(--ink-soft);
 }

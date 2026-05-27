@@ -86,7 +86,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.18.1 · merged project groups</span>
+        <span className="footer-build">v0.18.3 · project filters + SB title</span>
       </footer>
     </div>
   );

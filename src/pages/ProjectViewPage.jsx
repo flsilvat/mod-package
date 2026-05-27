@@ -11,6 +11,7 @@ import {
 import { computeConfigBucket, mergeBuckets } from '../lib/bucket';
 import CollapsibleKitTree from '../components/CollapsibleKitTree';
 import AlternatesChip from '../components/AlternatesChip';
+import FilterBar from '../components/FilterBar';
 
 // Full view for one Project: the group legend, the Drawings matrix, the
 // Materials matrix. Rows are unique drawings/materials across the project;
@@ -30,6 +31,10 @@ export default function ProjectViewPage() {
   // expand/contract state — keyed by drawing or material id.
   const [openDrawings, setOpenDrawings] = useState(() => new Set());
   const [openKits, setOpenKits] = useState(() => new Set());
+
+  // Per-section filter text — narrows the rows shown in each matrix.
+  const [drawingFilter, setDrawingFilter] = useState('');
+  const [materialFilter, setMaterialFilter] = useState('');
 
   function toggle(set, setSet, id) {
     setSet((prev) => {
@@ -83,7 +88,7 @@ export default function ProjectViewPage() {
   // ready. When it isn't, fall back to an empty shape so the hooks below
   // stay above any early return — needed to keep the rules of hooks happy.
   const matrix = useMemo(() => {
-    if (!project) return { groups: [], drawingRows: [] };
+    if (!project) return { parts: [], groups: [], drawingRows: [] };
     return buildProjectMatrix(project, {
       toPartsById,
       toPartsByTo,
@@ -91,6 +96,7 @@ export default function ProjectViewPage() {
       configById: configsById,
       aircraftById,
       drawingById,
+      sbsById,
     });
   }, [
     project,
@@ -100,32 +106,81 @@ export default function ProjectViewPage() {
     configsById,
     aircraftById,
     drawingById,
+    sbsById,
   ]);
 
-  // Per-group computed materials bucket, summed across the group's members
-  // (a merged group can contain multiple TO Parts with different SB configs).
+  // Per-TO-Part bucket — used to determine each material's "primary section"
+  // (which TO Part it sits under in the section list).
+  const partBuckets = useMemo(
+    () =>
+      matrix.parts.map((p) => {
+        if (!p.config || !p.sb) return [];
+        return computeConfigBucket(p.config, {
+          sb: p.sb,
+          drawingById,
+          materialById,
+        });
+      }),
+    [matrix.parts, drawingById, materialById]
+  );
+
+  // Per-merged-group bucket — the sum of partBuckets for the group's members.
+  // This is what fills the matrix cells (quantities per group).
   const groupBuckets = useMemo(
     () =>
       matrix.groups.map((g) => {
         const memberBuckets = g.members.map((m) => {
-          const config = m.config;
-          const sb = config ? sbsById.get(config.sbId) : null;
-          if (!config || !sb) return [];
-          return computeConfigBucket(config, {
-            sb,
-            drawingById,
-            materialById,
-          });
+          const partIdx = matrix.parts.findIndex(
+            (p) => p.part.id === m.part.id
+          );
+          return partIdx >= 0 ? partBuckets[partIdx] || [] : [];
         });
         return mergeBuckets(memberBuckets);
       }),
-    [matrix.groups, sbsById, drawingById, materialById]
+    [matrix.groups, matrix.parts, partBuckets]
   );
 
   const materialRows = useMemo(
-    () => buildMaterialsMatrix(matrix.groups, groupBuckets, { materialById }),
-    [matrix.groups, groupBuckets, materialById]
+    () =>
+      buildMaterialsMatrix(
+        matrix.parts,
+        matrix.groups,
+        partBuckets,
+        groupBuckets,
+        { materialById }
+      ),
+    [matrix.parts, matrix.groups, partBuckets, groupBuckets, materialById]
   );
+
+  // Per-section text filter. Empty filter ⇒ pass-through. Drawings match
+  // docNumber, rev, SAP DIR or title; materials match partNumber or
+  // description. Empty sections naturally disappear because sectionsOf only
+  // iterates rows that came through.
+  const filteredDrawingRows = useMemo(() => {
+    const q = drawingFilter.trim().toLowerCase();
+    if (!q) return matrix.drawingRows;
+    return matrix.drawingRows.filter((row) => {
+      const d = row.drawing;
+      return (
+        (d.docNumber || '').toLowerCase().includes(q) ||
+        (d.rev || '').toLowerCase().includes(q) ||
+        (d.sapDir || '').toLowerCase().includes(q) ||
+        (d.title || '').toLowerCase().includes(q)
+      );
+    });
+  }, [matrix.drawingRows, drawingFilter]);
+
+  const filteredMaterialRows = useMemo(() => {
+    const q = materialFilter.trim().toLowerCase();
+    if (!q) return materialRows;
+    return materialRows.filter((row) => {
+      const m = row.material;
+      return (
+        (m.partNumber || '').toLowerCase().includes(q) ||
+        (m.description || '').toLowerCase().includes(q)
+      );
+    });
+  }, [materialRows, materialFilter]);
 
   if (loading) {
     return (
@@ -192,6 +247,13 @@ export default function ProjectViewPage() {
             <div className="panel-titlebar">
               <h2 className="panel-title">Drawings</h2>
               <span className="count">{drawingRows.length}</span>
+              <FilterBar
+                value={drawingFilter}
+                onChange={setDrawingFilter}
+                placeholder="Filter drawings…"
+                count={filteredDrawingRows.length}
+                total={drawingRows.length}
+              />
               {/* Phase 2 — PDF export button slots here */}
             </div>
             {drawingRows.length === 0 ? (
@@ -199,10 +261,13 @@ export default function ProjectViewPage() {
                 No drawings reach this project yet. Link drawings to the SB
                 configurations referenced by this project's TO Parts.
               </p>
+            ) : filteredDrawingRows.length === 0 ? (
+              <p className="notice">No drawings match the filter.</p>
             ) : (
               <DrawingsMatrix
+                parts={matrix.parts}
                 groups={groups}
-                rows={drawingRows}
+                rows={filteredDrawingRows}
                 drawingById={drawingById}
                 openDrawings={openDrawings}
                 toggleDrawing={(id) =>
@@ -216,14 +281,24 @@ export default function ProjectViewPage() {
             <div className="panel-titlebar">
               <h2 className="panel-title">Materials</h2>
               <span className="count">{materialRows.length}</span>
+              <FilterBar
+                value={materialFilter}
+                onChange={setMaterialFilter}
+                placeholder="Filter materials…"
+                count={filteredMaterialRows.length}
+                total={materialRows.length}
+              />
               {/* Phase 2 — PDF export button slots here */}
             </div>
             {materialRows.length === 0 ? (
               <p className="kit-empty">No materials reach this project yet.</p>
+            ) : filteredMaterialRows.length === 0 ? (
+              <p className="notice">No materials match the filter.</p>
             ) : (
               <MaterialsMatrix
+                parts={matrix.parts}
                 groups={groups}
-                rows={materialRows}
+                rows={filteredMaterialRows}
                 materialById={materialById}
                 openKits={openKits}
                 toggleKit={(id) => toggle(openKits, setOpenKits, id)}
@@ -308,19 +383,19 @@ function GroupLegend({ groups, sbsById }) {
   );
 }
 
-// ----- shared section iteration: rows grouped by primaryGroupIndex -----
+// ----- shared section iteration: rows grouped by primaryPartIndex -----
 
-function sectionsOf(rows, groups) {
+function sectionsOf(rows, parts) {
   const out = [];
   let last = -1;
   for (const row of rows) {
-    if (row.primaryGroupIndex !== last) {
+    if (row.primaryPartIndex !== last) {
       out.push({
-        sectionIndex: row.primaryGroupIndex,
-        group: groups[row.primaryGroupIndex],
+        sectionIndex: row.primaryPartIndex,
+        part: parts[row.primaryPartIndex],
         rows: [row],
       });
-      last = row.primaryGroupIndex;
+      last = row.primaryPartIndex;
     } else {
       out[out.length - 1].rows.push(row);
     }
@@ -328,20 +403,33 @@ function sectionsOf(rows, groups) {
   return out;
 }
 
-function SectionHeader({ group, sectionIndex, colCount }) {
-  const first = group.members[0];
-  const extras = group.members.length - 1;
+function SectionHeader({ part, colCount }) {
+  if (!part) {
+    return (
+      <tr className="matrix-section">
+        <td colSpan={colCount}>(no TO Part)</td>
+      </tr>
+    );
+  }
   return (
     <tr className="matrix-section">
       <td colSpan={colCount}>
-        <span className="project-legend-index">G{sectionIndex + 1}</span>{' '}
-        {first.to?.toNumber || '?'} · {first.partLabel}
-        {first.config && <span className="dim"> · {first.config.name}</span>}
-        {extras > 0 && (
+        <span className="mono strong">
+          {part.to?.toNumber || '?'}
+        </span>{' '}
+        · {part.partLabel || '(no part)'}
+        {part.sb && (
           <span className="dim">
             {' '}
-            (+ {extras} more — same tails)
+            · {part.sb.sbRef}
+            {part.sb.rev ? ` rev ${part.sb.rev}` : ''}
           </span>
+        )}
+        {part.config && (
+          <span className="dim"> · {part.config.name}</span>
+        )}
+        {part.sb?.title && (
+          <span className="matrix-section-title"> · {part.sb.title}</span>
         )}
       </td>
     </tr>
@@ -351,13 +439,14 @@ function SectionHeader({ group, sectionIndex, colCount }) {
 // ----- drawings matrix -----
 
 function DrawingsMatrix({
+  parts,
   groups,
   rows,
   drawingById,
   openDrawings,
   toggleDrawing,
 }) {
-  const sections = sectionsOf(rows, groups);
+  const sections = sectionsOf(rows, parts);
   return (
     <div className="matrix-wrap">
       <table className="matrix">
@@ -374,7 +463,10 @@ function DrawingsMatrix({
         <tbody>
           {sections.map((section) => (
             <Fragment key={section.sectionIndex}>
-              <SectionHeader group={section.group} sectionIndex={section.sectionIndex} colCount={1 + groups.length} />
+              <SectionHeader
+                part={section.part}
+                colCount={1 + groups.length}
+              />
               {section.rows.map((row) => (
                 <DrawingRow
                   key={row.drawing.id}
@@ -490,13 +582,14 @@ function DrawingRefList({ refIds, drawingById, seen }) {
 // ----- materials matrix -----
 
 function MaterialsMatrix({
+  parts,
   groups,
   rows,
   materialById,
   openKits,
   toggleKit,
 }) {
-  const sections = sectionsOf(rows, groups);
+  const sections = sectionsOf(rows, parts);
   return (
     <div className="matrix-wrap">
       <table className="matrix">
@@ -513,7 +606,10 @@ function MaterialsMatrix({
         <tbody>
           {sections.map((section) => (
             <Fragment key={section.sectionIndex}>
-              <SectionHeader group={section.group} sectionIndex={section.sectionIndex} colCount={1 + groups.length} />
+              <SectionHeader
+                part={section.part}
+                colCount={1 + groups.length}
+              />
               {section.rows.map((row) => (
                 <MaterialRow
                   key={row.material.id}

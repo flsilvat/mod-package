@@ -257,9 +257,22 @@ export default function TOPartViewPage() {
           <p className="notice">No configuration assigned to this part.</p>
         ) : (
           <>
-            <p className="config-name-static" style={{ margin: '0 0 10px' }}>
+            <p className="config-name-static" style={{ margin: '0 0 4px' }}>
               {config.name}
             </p>
+            {sb?.title && (
+              <p
+                className="config-sb-title"
+                style={{
+                  margin: '0 0 10px',
+                  fontSize: 13,
+                  fontStyle: 'italic',
+                  color: 'var(--ink-soft)',
+                }}
+              >
+                {sb.title}
+              </p>
+            )}
             {configAircraft.length === 0 ? (
               <p className="kit-empty">No aircraft in this configuration.</p>
             ) : (
