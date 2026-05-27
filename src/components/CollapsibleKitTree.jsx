@@ -22,6 +22,7 @@ export default function CollapsibleKitTree({
   byId,
   seen,
   defaultOpen = false,
+  highlightIds,
 }) {
   return (
     <ul className="kit-tree">
@@ -32,13 +33,14 @@ export default function CollapsibleKitTree({
           byId={byId}
           seen={seen}
           defaultOpen={defaultOpen}
+          highlightIds={highlightIds}
         />
       ))}
     </ul>
   );
 }
 
-function KitNode({ component, byId, seen, defaultOpen }) {
+function KitNode({ component, byId, seen, defaultOpen, highlightIds }) {
   const [open, setOpen] = useState(defaultOpen);
   const material = byId.get(component.materialId);
 
@@ -60,13 +62,14 @@ function KitNode({ component, byId, seen, defaultOpen }) {
     : [];
   const isExpandable =
     !!material.isKit && childComponents.length > 0 && !isCycle;
+  const isMatch = !!(highlightIds && highlightIds.has(material.id));
 
   const childSeen = new Set(seen);
   childSeen.add(material.id);
 
   return (
     <li className="kit-node">
-      <div className="kit-node-row">
+      <div className={'kit-node-row' + (isMatch ? ' is-match' : '')}>
         {isExpandable ? (
           <button
             className="expand-btn"
@@ -95,6 +98,7 @@ function KitNode({ component, byId, seen, defaultOpen }) {
           byId={byId}
           seen={childSeen}
           defaultOpen={defaultOpen}
+          highlightIds={highlightIds}
         />
       )}
     </li>

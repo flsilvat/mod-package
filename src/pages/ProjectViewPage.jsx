@@ -270,6 +270,20 @@ export default function ProjectViewPage() {
     [openKits, autoOpenKits]
   );
 
+  // Set of material ids (across the whole catalogue) that match the
+  // current materials filter. Passed down into CollapsibleKitTree so any
+  // matched component inside a kit lights up the same way as a directly
+  // matched top-level row.
+  const matchedMaterialIds = useMemo(() => {
+    const q = materialFilter.trim().toLowerCase();
+    if (!q) return new Set();
+    const out = new Set();
+    for (const m of scope.materials || []) {
+      if (matchesMaterialSelf(m, q)) out.add(m.id);
+    }
+    return out;
+  }, [scope.materials, materialFilter]);
+
   if (loading) {
     return (
       <div className="page-head">
@@ -392,6 +406,7 @@ export default function ProjectViewPage() {
                 openKits={effectiveOpenKits}
                 toggleKit={(id) => toggle(openKits, setOpenKits, id)}
                 filterText={materialFilter}
+                highlightIds={matchedMaterialIds}
               />
             )}
           </section>
@@ -700,6 +715,7 @@ function MaterialsMatrix({
   openKits,
   toggleKit,
   filterText,
+  highlightIds,
 }) {
   const sections = sectionsOf(rows, parts);
   return (
@@ -731,6 +747,7 @@ function MaterialsMatrix({
                   isOpen={openKits.has(row.material.id)}
                   onToggle={() => toggleKit(row.material.id)}
                   filterText={filterText}
+                  highlightIds={highlightIds}
                 />
               ))}
             </Fragment>
@@ -748,6 +765,7 @@ function MaterialRow({
   isOpen,
   onToggle,
   filterText,
+  highlightIds,
 }) {
   const m = row.material;
   const isKit =
@@ -815,6 +833,7 @@ function MaterialRow({
               byId={materialById}
               seen={new Set([m.id])}
               defaultOpen={filterActive}
+              highlightIds={highlightIds}
             />
           </td>
         </tr>
