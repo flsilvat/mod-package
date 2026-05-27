@@ -1350,20 +1350,54 @@ a {
   padding: 2px 0 8px 28px;
 }
 
-/* ---------- filter-match highlights ---------- */
+/* ---------- filter-match highlights (colour-blind safe) ----------
+   Two-tone palette covering the Materials catalogue table, the Project
+   view Drawings/Materials matrices, and the nested kit/drawing trees.
 
-.table tr.row-match td {
-  background: #dfeaf6;
+   - match-self        — the row entity itself matches the filter.
+                         Pale blue background + saturated blue left edge.
+   - match-descendant  — only something *inside* the row matches (kit
+                         content, drawing ref). Pale amber background +
+                         saturated amber left edge.
+
+   Blue + amber is the Okabe-Ito-derived colour-blind-safe pair (works
+   for deuteranopia, protanopia, and tritanopia). The left-edge bar is
+   a non-colour redundancy so the distinction survives even on devices
+   or printouts that flatten colour. */
+
+/* Top-level table rows in the Materials catalogue. Background on every
+   cell so the highlight fills the row width, left bar only on the first
+   cell to avoid vertical lines between cells. */
+.table tr.row-match td,
+.matrix-row.match-self td {
+  background: #e0eefb;
+}
+.table tr.row-match td:first-child,
+.matrix-row.match-self td:first-child {
+  box-shadow: inset 3px 0 0 #1864ab;
 }
 
-.kit-node-row.is-match {
-  background: var(--accent-wash);
-  border-radius: 4px;
+.table tr.row-match-descendant td,
+.matrix-row.match-descendant td {
+  background: #fdf0d5;
+}
+.table tr.row-match-descendant td:first-child,
+.matrix-row.match-descendant td:first-child {
+  box-shadow: inset 3px 0 0 #c97400;
+}
+
+/* Nested rows inside a kit tree or drawing-ref tree — these are <div>s
+   inside an <li>, not table cells, so border-left works directly. */
+.kit-node-row.is-match,
+.kit-node.kit-node-match > .kit-node-row {
+  background: #d6e8f7;
+  border-left: 3px solid #1864ab;
+  border-radius: 0 4px 4px 0;
   margin: 0 -6px;
   padding: 3px 6px;
 }
 
-/* ---------- scope bar (cross-cutting filter) ---------- */
+/* ---------- scope bar (cross-cutting filter) -----e0eefb----- */
 
 .scope-bar {
   display: flex;

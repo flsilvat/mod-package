@@ -394,12 +394,22 @@ export default function MaterialsPage() {
                 const isOpen =
                   expanded.has(m.id) || view.autoExpand.has(m.id);
                 const isMatch = view.matched.has(m.id);
+                // A row that's only visible because a descendant matched
+                // (kit contents include a hit) carries a different
+                // background so the user can tell the row itself isn't
+                // the search target.
+                const isContext = !isMatch && view.autoExpand.has(m.id);
+                const rowClass = isMatch
+                  ? 'row-match'
+                  : isContext
+                    ? 'row-match-descendant'
+                    : '';
                 const compCount = Array.isArray(m.components)
                   ? m.components.length
                   : 0;
                 return (
                   <Fragment key={m.id}>
-                    <tr className={isMatch ? 'row-match' : ''}>
+                    <tr className={rowClass}>
                       <td className="col-caret">
                         <button
                           className="expand-btn"

@@ -13,6 +13,60 @@ import CollapsibleKitTree from '../components/CollapsibleKitTree';
 import AlternatesChip from '../components/AlternatesChip';
 import FilterBar from '../components/FilterBar';
 
+// ----- recursive filter helpers -----
+//
+// The filters on the Project view need to match nested instances too:
+//   - a drawing whose docNumber/title sits inside another drawing's ref tree
+//   - a material whose partNumber sits inside a kit's contents (any depth)
+// These return true when a hit exists either on the entity itself or
+// anywhere in its tree. Recursion is cycle-guarded via `seen`.
+
+function matchesDrawingSelf(d, q) {
+  if (!d) return false;
+  return (
+    (d.docNumber || '').toLowerCase().includes(q) ||
+    (d.rev || '').toLowerCase().includes(q) ||
+    (d.sapDir || '').toLowerCase().includes(q) ||
+    (d.title || '').toLowerCase().includes(q)
+  );
+}
+function matchesDrawingTree(id, q, drawingById, seen = new Set()) {
+  if (seen.has(id)) return false;
+  seen.add(id);
+  const d = drawingById.get(id);
+  if (!d) return false;
+  if (matchesDrawingSelf(d, q)) return true;
+  if (Array.isArray(d.refDrawingIds)) {
+    for (const refId of d.refDrawingIds) {
+      if (matchesDrawingTree(refId, q, drawingById, seen)) return true;
+    }
+  }
+  return false;
+}
+
+function matchesMaterialSelf(m, q) {
+  if (!m) return false;
+  return (
+    (m.partNumber || '').toLowerCase().includes(q) ||
+    (m.description || '').toLowerCase().includes(q)
+  );
+}
+function matchesMaterialTree(id, q, materialById, seen = new Set()) {
+  if (seen.has(id)) return false;
+  seen.add(id);
+  const m = materialById.get(id);
+  if (!m) return false;
+  if (matchesMaterialSelf(m, q)) return true;
+  if (m.isKit && Array.isArray(m.components)) {
+    for (const c of m.components) {
+      if (matchesMaterialTree(c.materialId, q, materialById, seen)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 // Full view for one Project: the group legend, the Drawings matrix, the
 // Materials matrix. Rows are unique drawings/materials across the project;
 // columns are TO Part groups; cells indicate applicability (drawings) or
@@ -154,33 +208,67 @@ export default function ProjectViewPage() {
 
   // Per-section text filter. Empty filter ⇒ pass-through. Drawings match
   // docNumber, rev, SAP DIR or title; materials match partNumber or
-  // description. Empty sections naturally disappear because sectionsOf only
-  // iterates rows that came through.
+  // description. The match also descends into nested instances — drawing
+  // refs and kit contents — so a kit whose component matches the filter
+  // stays visible (with the kit row as the carrier), and a drawing whose
+  // referenced child matches stays visible too. Empty sections naturally
+  // disappear because sectionsOf only iterates rows that came through.
   const filteredDrawingRows = useMemo(() => {
     const q = drawingFilter.trim().toLowerCase();
     if (!q) return matrix.drawingRows;
-    return matrix.drawingRows.filter((row) => {
-      const d = row.drawing;
-      return (
-        (d.docNumber || '').toLowerCase().includes(q) ||
-        (d.rev || '').toLowerCase().includes(q) ||
-        (d.sapDir || '').toLowerCase().includes(q) ||
-        (d.title || '').toLowerCase().includes(q)
-      );
-    });
-  }, [matrix.drawingRows, drawingFilter]);
+    return matrix.drawingRows.filter((row) =>
+      matchesDrawingTree(row.drawing.id, q, drawingById)
+    );
+  }, [matrix.drawingRows, drawingFilter, drawingById]);
 
   const filteredMaterialRows = useMemo(() => {
     const q = materialFilter.trim().toLowerCase();
     if (!q) return materialRows;
-    return materialRows.filter((row) => {
-      const m = row.material;
-      return (
-        (m.partNumber || '').toLowerCase().includes(q) ||
-        (m.description || '').toLowerCase().includes(q)
-      );
-    });
-  }, [materialRows, materialFilter]);
+    return materialRows.filter((row) =>
+      matchesMaterialTree(row.material.id, q, materialById)
+    );
+  }, [materialRows, materialFilter, materialById]);
+
+  // Rows whose match lives in a descendant only (not the row entity itself)
+  // get auto-opened, so the deep match is reachable without an extra click.
+  // For drawings the ref-tree component already auto-expands recursively;
+  // for materials the CollapsibleKitTree picks up `defaultOpen` from the
+  // row, see MaterialRow below.
+  const autoOpenDrawings = useMemo(() => {
+    const q = drawingFilter.trim().toLowerCase();
+    if (!q) return new Set();
+    const out = new Set();
+    for (const row of filteredDrawingRows) {
+      if (matchesDrawingSelf(row.drawing, q)) continue;
+      out.add(row.drawing.id);
+    }
+    return out;
+  }, [filteredDrawingRows, drawingFilter]);
+
+  const autoOpenKits = useMemo(() => {
+    const q = materialFilter.trim().toLowerCase();
+    if (!q) return new Set();
+    const out = new Set();
+    for (const row of filteredMaterialRows) {
+      if (matchesMaterialSelf(row.material, q)) continue;
+      out.add(row.material.id);
+    }
+    return out;
+  }, [filteredMaterialRows, materialFilter]);
+
+  // Effective open = user-toggled UNION auto-opened. Manual clicks keep
+  // working on the user-open set; auto-opens just ride along while the
+  // filter is active. Caveat: while a row is auto-open the user can't
+  // "click to close" it — clicking just adds/removes from userOpen but
+  // the union still includes it. Acceptable for a search-driven view.
+  const effectiveOpenDrawings = useMemo(
+    () => new Set([...openDrawings, ...autoOpenDrawings]),
+    [openDrawings, autoOpenDrawings]
+  );
+  const effectiveOpenKits = useMemo(
+    () => new Set([...openKits, ...autoOpenKits]),
+    [openKits, autoOpenKits]
+  );
 
   if (loading) {
     return (
@@ -269,10 +357,11 @@ export default function ProjectViewPage() {
                 groups={groups}
                 rows={filteredDrawingRows}
                 drawingById={drawingById}
-                openDrawings={openDrawings}
+                openDrawings={effectiveOpenDrawings}
                 toggleDrawing={(id) =>
                   toggle(openDrawings, setOpenDrawings, id)
                 }
+                filterText={drawingFilter}
               />
             )}
           </section>
@@ -300,8 +389,9 @@ export default function ProjectViewPage() {
                 groups={groups}
                 rows={filteredMaterialRows}
                 materialById={materialById}
-                openKits={openKits}
+                openKits={effectiveOpenKits}
                 toggleKit={(id) => toggle(openKits, setOpenKits, id)}
+                filterText={materialFilter}
               />
             )}
           </section>
@@ -445,6 +535,7 @@ function DrawingsMatrix({
   drawingById,
   openDrawings,
   toggleDrawing,
+  filterText,
 }) {
   const sections = sectionsOf(rows, parts);
   return (
@@ -475,6 +566,7 @@ function DrawingsMatrix({
                   drawingById={drawingById}
                   isOpen={openDrawings.has(row.drawing.id)}
                   onToggle={() => toggleDrawing(row.drawing.id)}
+                  filterText={filterText}
                 />
               ))}
             </Fragment>
@@ -485,13 +577,26 @@ function DrawingsMatrix({
   );
 }
 
-function DrawingRow({ row, groups, drawingById, isOpen, onToggle }) {
+function DrawingRow({ row, groups, drawingById, isOpen, onToggle, filterText }) {
   const d = row.drawing;
   const refIds = Array.isArray(d.refDrawingIds) ? d.refDrawingIds : [];
   const hasRefs = refIds.length > 0;
+
+  // Classify the match so the row can carry a visual indicator. The colour
+  // semantics are colour-blind-safe (blue for direct, amber for descendant).
+  const q = (filterText || '').trim().toLowerCase();
+  let matchKind = '';
+  if (q) {
+    if (matchesDrawingSelf(d, q)) matchKind = 'match-self';
+    else if (hasRefs && matchesDrawingTree(d.id, q, drawingById)) {
+      matchKind = 'match-descendant';
+    }
+  }
+  const rowClass = `matrix-row${matchKind ? ` ${matchKind}` : ''}`;
+
   return (
     <>
-      <tr className="matrix-row">
+      <tr className={rowClass}>
         <td className="matrix-row-label">
           <div className="matrix-row-head">
             {hasRefs ? (
@@ -528,6 +633,7 @@ function DrawingRow({ row, groups, drawingById, isOpen, onToggle }) {
               refIds={refIds}
               drawingById={drawingById}
               seen={new Set([d.id])}
+              filterQuery={q}
             />
           </td>
         </tr>
@@ -536,7 +642,7 @@ function DrawingRow({ row, groups, drawingById, isOpen, onToggle }) {
   );
 }
 
-function DrawingRefList({ refIds, drawingById, seen }) {
+function DrawingRefList({ refIds, drawingById, seen, filterQuery }) {
   return (
     <ul className="kit-tree">
       {refIds.map((id, idx) => {
@@ -554,8 +660,12 @@ function DrawingRefList({ refIds, drawingById, seen }) {
         const childSeen = new Set(seen);
         childSeen.add(id);
         const childRefs = Array.isArray(d.refDrawingIds) ? d.refDrawingIds : [];
+        const isMatch = filterQuery && matchesDrawingSelf(d, filterQuery);
         return (
-          <li key={id} className="kit-node">
+          <li
+            key={id}
+            className={`kit-node${isMatch ? ' kit-node-match' : ''}`}
+          >
             <div className="kit-node-row">
               <span className="mono strong">{d.docNumber}</span>
               {d.rev && <span className="tag tag-count">rev {d.rev}</span>}
@@ -570,6 +680,7 @@ function DrawingRefList({ refIds, drawingById, seen }) {
                 refIds={childRefs}
                 drawingById={drawingById}
                 seen={childSeen}
+                filterQuery={filterQuery}
               />
             )}
           </li>
@@ -588,6 +699,7 @@ function MaterialsMatrix({
   materialById,
   openKits,
   toggleKit,
+  filterText,
 }) {
   const sections = sectionsOf(rows, parts);
   return (
@@ -618,6 +730,7 @@ function MaterialsMatrix({
                   materialById={materialById}
                   isOpen={openKits.has(row.material.id)}
                   onToggle={() => toggleKit(row.material.id)}
+                  filterText={filterText}
                 />
               ))}
             </Fragment>
@@ -628,13 +741,40 @@ function MaterialsMatrix({
   );
 }
 
-function MaterialRow({ row, groups, materialById, isOpen, onToggle }) {
+function MaterialRow({
+  row,
+  groups,
+  materialById,
+  isOpen,
+  onToggle,
+  filterText,
+}) {
   const m = row.material;
   const isKit =
     !!m.isKit && Array.isArray(m.components) && m.components.length > 0;
+
+  // Match classification for the row colour. Self = direct hit (blue);
+  // descendant = something inside the kit matched (amber). Both palettes
+  // are colour-blind safe — see CSS .match-self / .match-descendant.
+  const q = (filterText || '').trim().toLowerCase();
+  let matchKind = '';
+  if (q) {
+    if (matchesMaterialSelf(m, q)) matchKind = 'match-self';
+    else if (isKit && matchesMaterialTree(m.id, q, materialById)) {
+      matchKind = 'match-descendant';
+    }
+  }
+  const rowClass = `matrix-row${matchKind ? ` ${matchKind}` : ''}`;
+
+  // When the filter is non-empty we want the inner kit tree to start fully
+  // expanded so a deep match is reachable without extra clicks. The `key`
+  // toggles only on the empty ↔ non-empty boundary (not per keystroke),
+  // so we don't remount the tree on every character typed.
+  const filterActive = !!q;
+
   return (
     <>
-      <tr className="matrix-row">
+      <tr className={rowClass}>
         <td className="matrix-row-label">
           <div className="matrix-row-head">
             {isKit ? (
@@ -670,9 +810,11 @@ function MaterialRow({ row, groups, materialById, isOpen, onToggle }) {
         <tr className="matrix-row matrix-subrow">
           <td colSpan={1 + groups.length} className="matrix-subrow-body">
             <CollapsibleKitTree
+              key={filterActive ? 'filter-active' : 'no-filter'}
               components={m.components}
               byId={materialById}
               seen={new Set([m.id])}
+              defaultOpen={filterActive}
             />
           </td>
         </tr>

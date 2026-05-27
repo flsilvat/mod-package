@@ -11,7 +11,18 @@ import AlternatesChip from './AlternatesChip';
 // `seen`       — Set<materialId> for cycle-guarded recursion. The caller
 //                should include the parent kit's id in `seen` before
 //                passing the tree in.
-export default function CollapsibleKitTree({ components, byId, seen }) {
+// `defaultOpen` — initial open state for every node in the tree. Used by
+//                the Project view filter so that when a search is active,
+//                the entire tree is unfolded by default (any deep match
+//                becomes visible without further clicks). Callers should
+//                also `key=` the tree on filter-active transitions so the
+//                nodes remount and pick up the new default.
+export default function CollapsibleKitTree({
+  components,
+  byId,
+  seen,
+  defaultOpen = false,
+}) {
   return (
     <ul className="kit-tree">
       {components.map((component, index) => (
@@ -20,14 +31,15 @@ export default function CollapsibleKitTree({ components, byId, seen }) {
           component={component}
           byId={byId}
           seen={seen}
+          defaultOpen={defaultOpen}
         />
       ))}
     </ul>
   );
 }
 
-function KitNode({ component, byId, seen }) {
-  const [open, setOpen] = useState(false);
+function KitNode({ component, byId, seen, defaultOpen }) {
+  const [open, setOpen] = useState(defaultOpen);
   const material = byId.get(component.materialId);
 
   if (!material) {
@@ -82,6 +94,7 @@ function KitNode({ component, byId, seen }) {
           components={childComponents}
           byId={byId}
           seen={childSeen}
+          defaultOpen={defaultOpen}
         />
       )}
     </li>
