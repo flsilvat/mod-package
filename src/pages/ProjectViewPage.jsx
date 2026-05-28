@@ -313,6 +313,7 @@ export default function ProjectViewPage() {
           ...common,
           materialRows,
           materialById,
+          alternatesMap: scope.alternatesMap,
         });
       }
     } catch (err) {

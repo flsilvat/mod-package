@@ -245,7 +245,16 @@ export default function MaterialsPage() {
   async function changeComponentQty(kit, index, value) {
     const n = Number(value);
     const components = Array.isArray(kit.components) ? kit.components : [];
-    if (!(n > 0) || !components[index] || components[index].qty === n) return;
+    // Allow 0 (a part can be listed in a kit at zero qty to record that it
+    // belongs to the kit without contributing material). Reject only
+    // negatives, non-numbers, and no-op edits.
+    if (
+      !Number.isFinite(n) ||
+      n < 0 ||
+      !components[index] ||
+      components[index].qty === n
+    )
+      return;
     await updateDoc(doc(db, COLLECTIONS.MATERIAL, kit.id), {
       components: components.map((c, i) => (i === index ? { ...c, qty: n } : c)),
     });
