@@ -68,9 +68,19 @@ export function buildProjectMatrix(
     const to = toById.get(part.technicalOrderId) || null;
     const sb = config ? sbsById.get(config.sbId) || null : null;
     const aircraftIdsSorted = (config?.aircraftIds || []).slice().sort();
+    // Sort the resolved aircraft docs by registration for display (LEA,
+    // LEB, LEC …). The merge key above stays ID-based so grouping is
+    // unaffected; this only changes presentation order in the legend and
+    // the PDF exports, which both read group.aircraft.
     const aircraft = aircraftIdsSorted
       .map((id) => aircraftById.get(id))
-      .filter(Boolean);
+      .filter(Boolean)
+      .sort((a, b) =>
+        (a.registration || '').localeCompare(b.registration || '', undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        })
+      );
     const drawings = config
       ? collectDrawingsForConfig(config.id, { drawingById })
       : [];

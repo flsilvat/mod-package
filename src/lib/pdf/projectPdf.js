@@ -256,7 +256,7 @@ export function exportMaterialsPdf({
   doc.setFont('Inter', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(...INK);
-  doc.text('Main bucket', PAGE.margin, y);
+  doc.text('Materials required per aircraft', PAGE.margin, y);
   y += 1;
 
   autoTable(doc, {
