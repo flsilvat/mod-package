@@ -19,6 +19,7 @@ import {
   INK,
   SOFT,
   RULE,
+  MONO,
 } from './pdfCommon';
 
 // Group rows (drawingRows / materialRows) into sections keyed by their
@@ -136,7 +137,7 @@ export function exportDrawingsPdf({
       halign: 'center',
     },
     columnStyles: {
-      0: { font: 'courier', cellWidth: noW },
+      0: { font: MONO, cellWidth: noW },
       1: { cellWidth: titleW },
       ...Object.fromEntries(
         groups.map((_, i) => [i + 2, { cellWidth: gW, halign: 'center' }])
@@ -179,7 +180,7 @@ export function exportDrawingsPdf({
 function appendDrawingRefRows(body, refIds, drawingById, depth, seen, groupCount) {
   for (const id of refIds) {
     const d = drawingById.get(id);
-    const indent = '   '.repeat(depth) + '└ ';
+    const indent = '   '.repeat(depth) + '- ';
     if (!d) {
       const arr = [indent + '(missing)', ''];
       for (let i = 0; i < groupCount; i++) arr.push('');
@@ -284,12 +285,12 @@ export function exportMaterialsPdf({
       halign: 'center',
     },
     columnStyles: {
-      0: { font: 'courier', cellWidth: noW },
+      0: { font: MONO, cellWidth: noW },
       1: { cellWidth: descW },
       ...Object.fromEntries(
         groups.map((_, i) => [
           i + 2,
-          { cellWidth: gW, halign: 'center', font: 'courier' },
+          { cellWidth: gW, halign: 'center', font: MONO },
         ])
       ),
     },
@@ -360,8 +361,8 @@ export function exportMaterialsPdf({
         lineWidth: 0.2,
       },
       columnStyles: {
-        0: { cellWidth: 16, halign: 'right', font: 'courier' },
-        1: { cellWidth: 44, font: 'courier' },
+        0: { cellWidth: 16, halign: 'right', font: MONO },
+        1: { cellWidth: 44, font: MONO },
         2: { cellWidth: CONTENT_WIDTH - 16 - 44 },
       },
       didParseCell: (data) => {
@@ -385,7 +386,7 @@ export function exportMaterialsPdf({
 function appendKitRows(body, components, materialById, depth, seen) {
   for (const comp of components) {
     const child = materialById.get(comp.materialId);
-    const indent = '   '.repeat(depth - 1) + (depth > 1 ? '└ ' : '');
+    const indent = '   '.repeat(depth - 1) + (depth > 1 ? '- ' : '');
     if (!child) {
       body.push([String(comp.qty ?? ''), indent + '(missing)', '']);
       continue;

@@ -11,6 +11,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { INTER_REGULAR, INTER_BOLD } from './interFont';
+import { JBMONO_REGULAR, JBMONO_BOLD } from './monoFont';
 
 // --- palette (greyscale only) ---
 export const INK = [17, 17, 17]; //   near-black body text
@@ -33,7 +34,14 @@ function registerFonts(doc) {
   doc.addFont('Inter-Regular.ttf', 'Inter', 'normal');
   doc.addFileToVFS('Inter-Bold.ttf', INTER_BOLD);
   doc.addFont('Inter-Bold.ttf', 'Inter', 'bold');
+  doc.addFileToVFS('JBMono-Regular.ttf', JBMONO_REGULAR);
+  doc.addFont('JBMono-Regular.ttf', 'JetBrainsMono', 'normal');
+  doc.addFileToVFS('JBMono-Bold.ttf', JBMONO_BOLD);
+  doc.addFont('JBMono-Bold.ttf', 'JetBrainsMono', 'bold');
 }
+
+// Font name to use for monospaced identifiers (drawing/part numbers).
+export const MONO = 'JetBrainsMono';
 
 export function newDoc() {
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });

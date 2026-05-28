@@ -86,7 +86,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.19.0 · PDF export</span>
+        <span className="footer-build">v0.19.1 · PDF mono font</span>
       </footer>
     </div>
   );
