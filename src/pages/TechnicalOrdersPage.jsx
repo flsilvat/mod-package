@@ -366,6 +366,11 @@ export default function TechnicalOrdersPage() {
                             {sb.rev && (
                               <span className="dim"> rev {sb.rev}</span>
                             )}
+                            {sb.title && (
+                              <span className="builtfrom-title">
+                                {sb.title}
+                              </span>
+                            )}
                           </>
                         ) : (
                           <span className="dim">(missing bulletin)</span>

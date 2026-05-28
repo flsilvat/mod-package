@@ -21,7 +21,8 @@ export default function ScopeBar() {
   } = useScope();
 
   // TO Parts not already selected, labeled "TO {n} · {partLabel}" with
-  // "{configName} · {sbRef}" as a sublabel — sorted by TO number then part.
+  // "{configName} · {sbRef}" as a sublabel and the SB title as a third
+  // note line — sorted by TO number then part.
   const options = useMemo(() => {
     const selected = new Set(items.map((i) => i.id));
     const list = [];
@@ -36,6 +37,7 @@ export default function ScopeBar() {
         sublabel: config
           ? `${config.name}${sb ? ` · ${sb.sbRef}${sb.rev ? ` rev ${sb.rev}` : ''}` : ''}`
           : '(no config assigned)',
+        note: sb?.title || '',
         sortKey: `${to?.toNumber ?? ''} ${p.partLabel}`.toLowerCase(),
       });
     }

@@ -1137,6 +1137,17 @@ a {
   white-space: nowrap;
 }
 
+/* Optional third line in a MultiSelect option — used for the SB title in
+   the scope picker. Wraps fully (no truncation) so it's always readable,
+   and italic to set it apart from the structured sublabel above it. */
+.ms-note {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--ink-soft);
+  white-space: normal;
+  line-height: 1.3;
+}
+
 .ms-empty {
   margin: 0;
   padding: 14px;
@@ -1690,4 +1701,16 @@ a {
 .pdf-export-btn {
   margin-left: auto;
   white-space: nowrap;
+}
+
+/* SB title shown under the SB reference in the Technical Orders "Built
+   from" column. Breaks out of the cell's mono styling onto its own line. */
+.builtfrom-title {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-style: italic;
+  color: var(--ink-soft);
+  margin-top: 2px;
+  white-space: normal;
 }

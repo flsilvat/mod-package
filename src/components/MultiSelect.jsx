@@ -3,7 +3,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 // Searchable checkbox multi-select used for linking sub-entities.
 //
 // Props:
-//   options     — [{ id, label, sublabel }]  the items that can be added
+//   options     — [{ id, label, sublabel, note }]  the items that can be added
 //   placeholder — button text, e.g. "Add materials…"
 //   onAdd       — (ids[]) => void   called with the ticked ids on confirm
 //
@@ -25,7 +25,8 @@ export default function MultiSelect({ options, placeholder, onAdd }) {
     return options.filter(
       (o) =>
         o.label.toLowerCase().includes(q) ||
-        (o.sublabel || '').toLowerCase().includes(q)
+        (o.sublabel || '').toLowerCase().includes(q) ||
+        (o.note || '').toLowerCase().includes(q)
     );
   }, [options, search]);
 
@@ -143,6 +144,7 @@ export default function MultiSelect({ options, placeholder, onAdd }) {
                   {o.sublabel && (
                     <span className="ms-sublabel">{o.sublabel}</span>
                   )}
+                  {o.note && <span className="ms-note">{o.note}</span>}
                 </label>
               ))
             )}
