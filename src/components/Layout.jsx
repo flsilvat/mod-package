@@ -86,7 +86,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.18.5 · kit match highlight</span>
+        <span className="footer-build">v0.19.0 · PDF export</span>
       </footer>
     </div>
   );

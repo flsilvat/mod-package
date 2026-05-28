@@ -1397,7 +1397,7 @@ a {
   padding: 3px 6px;
 }
 
-/* ---------- scope bar (cross-cutting filter) -----e0eefb----- */
+/* ---------- scope bar (cross-cutting filter) ---------- */
 
 .scope-bar {
   display: flex;
@@ -1683,4 +1683,11 @@ a {
   font-style: italic;
   font-weight: normal;
   color: var(--ink-soft);
+}
+
+/* Project view PDF export buttons — sit at the right end of the section
+   titlebar, after the filter. */
+.pdf-export-btn {
+  margin-left: auto;
+  white-space: nowrap;
 }

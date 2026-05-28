@@ -90,6 +90,12 @@ export default function ProjectViewPage() {
   const [drawingFilter, setDrawingFilter] = useState('');
   const [materialFilter, setMaterialFilter] = useState('');
 
+  // PDF export — the generator (jsPDF + autotable + embedded Inter) is
+  // dynamically imported on first click so it never weighs down the main
+  // bundle. `exporting` is the kind currently generating, for button state.
+  const [exporting, setExporting] = useState('');
+  const [exportError, setExportError] = useState('');
+
   function toggle(set, setSet, id) {
     setSet((prev) => {
       const next = new Set(prev);
@@ -284,6 +290,38 @@ export default function ProjectViewPage() {
     return out;
   }, [scope.materials, materialFilter]);
 
+  async function runExport(kind) {
+    if (!project) return;
+    setExporting(kind);
+    setExportError('');
+    try {
+      const mod = await import('../lib/pdf/projectPdf');
+      const common = {
+        project,
+        parts: matrix.parts,
+        groups: matrix.groups,
+        sbsById,
+      };
+      if (kind === 'drawings') {
+        mod.exportDrawingsPdf({
+          ...common,
+          drawingRows: matrix.drawingRows,
+          drawingById,
+        });
+      } else {
+        mod.exportMaterialsPdf({
+          ...common,
+          materialRows,
+          materialById,
+        });
+      }
+    } catch (err) {
+      setExportError(err?.message || 'PDF export failed.');
+    } finally {
+      setExporting('');
+    }
+  }
+
   if (loading) {
     return (
       <div className="page-head">
@@ -343,6 +381,9 @@ export default function ProjectViewPage() {
         </section>
       ) : (
         <>
+          {exportError && (
+            <p className="notice notice-error">{exportError}</p>
+          )}
           <GroupLegend groups={groups} sbsById={sbsById} />
 
           <section className="panel">
@@ -356,7 +397,13 @@ export default function ProjectViewPage() {
                 count={filteredDrawingRows.length}
                 total={drawingRows.length}
               />
-              {/* Phase 2 — PDF export button slots here */}
+              <button
+                className="btn btn-ghost btn-sm pdf-export-btn"
+                onClick={() => runExport('drawings')}
+                disabled={exporting === 'drawings' || drawingRows.length === 0}
+              >
+                {exporting === 'drawings' ? 'Exporting…' : '⤓ PDF'}
+              </button>
             </div>
             {drawingRows.length === 0 ? (
               <p className="kit-empty">
@@ -391,7 +438,13 @@ export default function ProjectViewPage() {
                 count={filteredMaterialRows.length}
                 total={materialRows.length}
               />
-              {/* Phase 2 — PDF export button slots here */}
+              <button
+                className="btn btn-ghost btn-sm pdf-export-btn"
+                onClick={() => runExport('materials')}
+                disabled={exporting === 'materials' || materialRows.length === 0}
+              >
+                {exporting === 'materials' ? 'Exporting…' : '⤓ PDF'}
+              </button>
             </div>
             {materialRows.length === 0 ? (
               <p className="kit-empty">No materials reach this project yet.</p>
