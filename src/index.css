@@ -1106,9 +1106,9 @@ a {
 
 .ms-option {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 9px;
-  padding: 7px 11px;
+  padding: 8px 11px;
   cursor: pointer;
 }
 
@@ -1121,12 +1121,24 @@ a {
   height: 15px;
   accent-color: var(--accent);
   flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* The three text lines (label / sublabel / note) stack vertically and
+   take all the width left of the checkbox, so each reads on its own line
+   instead of competing for space in a single row. min-width:0 lets the
+   children truncate/wrap correctly inside the flex column. */
+.ms-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
 }
 
 .ms-label {
   font-family: var(--font-mono);
   font-size: 12px;
-  flex-shrink: 0;
 }
 
 .ms-sublabel {

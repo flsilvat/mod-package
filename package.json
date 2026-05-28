@@ -1,7 +1,7 @@
 {
   "name": "mod-package-app",
   "private": true,
-  "version": "0.19.3",
+  "version": "0.19.4",
   "type": "module",
   "description": "Aircraft modification package manager — builds Technical Orders from Service Bulletins.",
   "scripts": {

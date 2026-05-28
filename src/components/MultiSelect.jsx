@@ -140,11 +140,13 @@ export default function MultiSelect({ options, placeholder, onAdd }) {
                     onChange={() => toggle(o.id)}
                     tabIndex={-1}
                   />
-                  <span className="ms-label">{o.label}</span>
-                  {o.sublabel && (
-                    <span className="ms-sublabel">{o.sublabel}</span>
-                  )}
-                  {o.note && <span className="ms-note">{o.note}</span>}
+                  <span className="ms-text">
+                    <span className="ms-label">{o.label}</span>
+                    {o.sublabel && (
+                      <span className="ms-sublabel">{o.sublabel}</span>
+                    )}
+                    {o.note && <span className="ms-note">{o.note}</span>}
+                  </span>
                 </label>
               ))
             )}
