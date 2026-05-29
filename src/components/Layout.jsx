@@ -86,7 +86,7 @@ export default function Layout() {
 
       <footer className="footer">
         <span>Mod Package · internal tooling</span>
-        <span className="footer-build">v0.19.6 · pdf alt chips in kit list</span>
+        <span className="footer-build">v0.20.2 · pdf tree colour</span>
       </footer>
     </div>
   );

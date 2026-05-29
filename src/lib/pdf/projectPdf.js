@@ -19,6 +19,7 @@ import {
   INK,
   SOFT,
   RULE,
+  TREE,
   MONO,
 } from './pdfCommon';
 
@@ -356,30 +357,40 @@ export function exportMaterialsPdf({
     doc.text('Kit list · fully expanded', PAGE.margin, ky);
 
     const kitBody = [];
+    let maxDepth = 1;
     for (const kit of kits) {
       kitBody.push([
         {
           content: bannerText(
             `KIT · ${kit.partNumber || ''}${kit.description ? '  ·  ' + kit.description : ''}`
           ),
-          colSpan: 3,
+          colSpan: 4,
           _kit: true,
         },
       ]);
-      appendKitRows(
+      const d = appendKitRows(
         kitBody,
         kit.components,
         materialById,
-        1,
         new Set([kit.id]),
-        alternatesMap
+        alternatesMap,
+        []
       );
+      maxDepth = Math.max(maxDepth, d);
     }
+
+    // Tree column auto-sizes to the deepest nesting (one "step" per level),
+    // clamped so it never starves the description column.
+    const treeStep = 3.4;
+    const qtyW = 12;
+    const treeW = Math.min(Math.max(maxDepth * treeStep + 2, 6), 30);
+    const partW = 40;
+    const kitDescW = CONTENT_WIDTH - qtyW - treeW - partW;
 
     autoTable(doc, {
       startY: ky + 2,
       margin: { left: PAGE.margin, right: PAGE.margin },
-      head: [['Qty', 'Part', 'Description']],
+      head: [['Qty', '', 'Part', 'Description']],
       body: kitBody,
       theme: 'grid',
       styles: {
@@ -401,41 +412,49 @@ export function exportMaterialsPdf({
         lineWidth: 0.2,
       },
       columnStyles: {
-        0: { cellWidth: 16, halign: 'right', font: MONO },
-        1: { cellWidth: 44, font: MONO },
-        2: { cellWidth: CONTENT_WIDTH - 16 - 44 },
+        0: { cellWidth: qtyW, halign: 'right', font: MONO },
+        1: { cellWidth: treeW },
+        2: { cellWidth: partW, font: MONO },
+        3: { cellWidth: kitDescW },
       },
       didParseCell: (data) => {
-        if (data.section === 'body' && data.cell.colSpan === 3) {
+        if (data.section === 'body' && data.cell.colSpan === 4) {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.font = 'Inter';
           data.cell.styles.textColor = INK;
           data.cell.styles.halign = 'center';
         }
-        if (data.section === 'head' && data.column.index === 2) {
+        if (data.section === 'head' && data.column.index === 3) {
           data.cell.styles.halign = 'left';
         }
       },
       didDrawCell: (data) => {
         if (data.section !== 'body') return;
-        if (data.column.index !== 1) return;
         if (data.cell.colSpan && data.cell.colSpan > 1) return; // kit header
-        const raw = data.cell.raw;
-        const altCount = raw && typeof raw === 'object' ? raw._alt : 0;
-        if (!altCount) return;
-        doc.setFont(MONO, 'normal');
-        doc.setFontSize(8);
-        const txt = (raw && raw.content) || '';
-        const txtW = doc.getTextWidth(String(txt));
-        const chipW = altChipWidth(doc, altCount);
-        const padLeft = 1.4;
-        const desiredX = data.cell.x + padLeft + txtW + 1.4;
-        const maxX = data.cell.x + data.cell.width - chipW - 0.6;
-        const chipX = Math.min(
-          desiredX,
-          Math.max(data.cell.x + padLeft, maxX)
-        );
-        drawAltChip(doc, chipX, data.cell.y + data.cell.height / 2, altCount);
+        // Tree connectors in the dedicated tree column.
+        if (data.column.index === 1) {
+          drawTreeCell(doc, data, treeStep);
+          return;
+        }
+        // Alternates chip in the part-number column.
+        if (data.column.index === 2) {
+          const raw = data.cell.raw;
+          const altCount = raw && typeof raw === 'object' ? raw._alt : 0;
+          if (!altCount) return;
+          doc.setFont(MONO, 'normal');
+          doc.setFontSize(8);
+          const txt = (raw && raw.content) || '';
+          const txtW = doc.getTextWidth(String(txt));
+          const chipW = altChipWidth(doc, altCount);
+          const padLeft = 1.4;
+          const desiredX = data.cell.x + padLeft + txtW + 1.4;
+          const maxX = data.cell.x + data.cell.width - chipW - 0.6;
+          const chipX = Math.min(
+            desiredX,
+            Math.max(data.cell.x + padLeft, maxX)
+          );
+          drawAltChip(doc, chipX, data.cell.y + data.cell.height / 2, altCount);
+        }
       },
     });
   }
@@ -444,41 +463,120 @@ export function exportMaterialsPdf({
   doc.save(pdfName(project.name, 'materials'));
 }
 
-// Recursively append a kit's contents as indented rows. Cycle-guarded.
-// The Part cell is an object carrying `_alt` (interchange alternates count)
-// so the kit-list table can draw the same alternates chip the main bucket
-// shows — alternates most often live on kit components, not top-level lines.
-function appendKitRows(body, components, materialById, depth, seen, alternatesMap) {
-  for (const comp of components) {
+// Recursively append a kit's contents as table rows. Cycle-guarded.
+//
+// Each row is [Qty, TreeCell, PartCell, Description]:
+//   - TreeCell carries `_tree = { ancestorsContinue, isLast }` so the tree
+//     connectors can be drawn as vector lines in didDrawCell. `ancestorsContinue`
+//     is one boolean per ancestor level: true where that ancestor has a later
+//     sibling (so a vertical line continues down through this row).
+//   - PartCell carries `_alt` (interchange alternates count) for the chip.
+//
+// `ancestorsContinue` passed in describes the levels above `components`.
+// Returns the deepest level reached, so the caller can size the tree column.
+function appendKitRows(
+  body,
+  components,
+  materialById,
+  seen,
+  alternatesMap,
+  ancestorsContinue
+) {
+  let maxDepth = ancestorsContinue.length + 1;
+  components.forEach((comp, i) => {
+    const isLast = i === components.length - 1;
     const child = materialById.get(comp.materialId);
-    const indent = '   '.repeat(depth - 1) + (depth > 1 ? '- ' : '');
     if (!child) {
-      body.push([String(comp.qty ?? ''), indent + '(missing)', '']);
-      continue;
+      body.push([
+        String(comp.qty ?? ''),
+        { content: '', _tree: { ancestorsContinue: ancestorsContinue.slice(), isLast, hasChildren: false } },
+        '(missing)',
+        '',
+      ]);
+      return;
     }
     const isCycle = seen.has(comp.materialId);
-    const desc = [child.description || '', child.isKit ? '[kit]' : '', isCycle ? '— circular' : '']
+    const hasChildren =
+      !!child.isKit &&
+      !isCycle &&
+      Array.isArray(child.components) &&
+      child.components.length > 0;
+    const tree = {
+      ancestorsContinue: ancestorsContinue.slice(),
+      isLast,
+      hasChildren,
+    };
+    const desc = [
+      child.description || '',
+      child.isKit ? '[kit]' : '',
+      isCycle ? '— circular' : '',
+    ]
       .filter(Boolean)
       .join('  ');
     const set = alternatesMap && alternatesMap.get(comp.materialId);
     const altCount = set ? set.size - 1 : 0;
     body.push([
       String(comp.qty ?? ''),
-      { content: indent + (child.partNumber || ''), _alt: altCount },
+      { content: '', _tree: tree },
+      { content: child.partNumber || '', _alt: altCount },
       desc,
     ]);
-    if (child.isKit && !isCycle && Array.isArray(child.components)) {
+    if (hasChildren) {
       const nextSeen = new Set(seen);
       nextSeen.add(comp.materialId);
-      appendKitRows(
+      const childMax = appendKitRows(
         body,
         child.components,
         materialById,
-        depth + 1,
         nextSeen,
-        alternatesMap
+        alternatesMap,
+        [...ancestorsContinue, !isLast]
       );
+      maxDepth = Math.max(maxDepth, childMax);
     }
+  });
+  return maxDepth;
+}
+
+// Draw the tree connectors for one kit-list row into its tree-column cell.
+//
+// Because part numbers live in a separate column (not inline with the tree),
+// a parent must explicitly link to its children: when a node has children it
+// reaches one column to the right and drops a vertical line, which the first
+// child's connect-up stub meets. Sibling spines are carried by the per-node
+// down-continue plus the ancestor pass-through bars.
+function drawTreeCell(doc, data, step) {
+  const raw = data.cell.raw;
+  const meta = raw && typeof raw === 'object' ? raw._tree : null;
+  if (!meta) return;
+  const x0 = data.cell.x;
+  const top = data.cell.y;
+  const bottom = data.cell.y + data.cell.height;
+  const mid = data.cell.y + data.cell.height / 2;
+  const lineX = (k) => x0 + k * step + 1.6;
+  const d = meta.ancestorsContinue.length; // 0-based column of this node
+
+  doc.setDrawColor(...TREE);
+  doc.setLineWidth(0.35);
+
+  // Pass-through vertical bars for ancestor levels with later siblings.
+  meta.ancestorsContinue.forEach((cont, i) => {
+    if (cont) doc.line(lineX(i), top, lineX(i), bottom);
+  });
+
+  // This node: connect up to the parent/sibling spine, continue down if it
+  // isn't the last sibling.
+  doc.line(lineX(d), top, lineX(d), mid);
+  if (!meta.isLast) doc.line(lineX(d), mid, lineX(d), bottom);
+
+  if (meta.hasChildren) {
+    // Reach over to the children's column and drop, starting their spine —
+    // the first child's connect-up stub meets this drop.
+    doc.line(lineX(d), mid, lineX(d + 1), mid);
+    doc.line(lineX(d + 1), mid, lineX(d + 1), bottom);
+  } else {
+    // Leaf: a short arm pointing toward the part number.
+    doc.line(lineX(d), mid, lineX(d) + step * 0.6, mid);
   }
 }
 

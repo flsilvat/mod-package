@@ -18,6 +18,10 @@ export const INK = [17, 17, 17]; //   near-black body text
 export const RULE = [120, 120, 120]; // thin structural rules
 export const SOFT = [90, 90, 90]; //   muted secondary text
 export const SECTION_BG = [238, 238, 238]; // very light grey section band
+// The one intentional spot of colour: the kit-tree connectors. Uses the
+// app's accent steel-blue so the tree reads as structure, distinct from the
+// black data gridlines. Still prints as a clear mid-tone in greyscale.
+export const TREE = [43, 90, 139];
 
 // A4 portrait geometry, in mm.
 export const PAGE = {
