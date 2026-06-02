@@ -1,7 +1,7 @@
 {
   "name": "mod-package-app",
   "private": true,
-  "version": "0.20.2",
+  "version": "0.21.1",
   "type": "module",
   "description": "Aircraft modification package manager — builds Technical Orders from Service Bulletins.",
   "scripts": {
@@ -12,6 +12,7 @@
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
+    "esbuild": "^0.28.0",
     "firebase": "^11.1.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
@@ -25,5 +26,9 @@
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "main": "interFont.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

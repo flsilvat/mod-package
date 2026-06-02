@@ -356,228 +356,239 @@ export function exportMaterialsPdf({
     doc.setTextColor(...INK);
     doc.text('Kit list · fully expanded', PAGE.margin, ky);
 
-    const kitBody = [];
-    let maxDepth = 1;
-    for (const kit of kits) {
-      kitBody.push([
-        {
-          content: bannerText(
-            `KIT · ${kit.partNumber || ''}${kit.description ? '  ·  ' + kit.description : ''}`
-          ),
-          colSpan: 4,
-          _kit: true,
-        },
-      ]);
-      const d = appendKitRows(
-        kitBody,
-        kit.components,
-        materialById,
-        new Set([kit.id]),
-        alternatesMap,
-        []
-      );
-      maxDepth = Math.max(maxDepth, d);
-    }
-
-    // Tree column auto-sizes to the deepest nesting (one "step" per level),
-    // clamped so it never starves the description column.
-    const treeStep = 3.4;
-    const qtyW = 12;
-    const treeW = Math.min(Math.max(maxDepth * treeStep + 2, 6), 30);
-    const partW = 40;
-    const kitDescW = CONTENT_WIDTH - qtyW - treeW - partW;
-
-    autoTable(doc, {
-      startY: ky + 2,
-      margin: { left: PAGE.margin, right: PAGE.margin },
-      head: [['Qty', '', 'Part', 'Description']],
-      body: kitBody,
-      theme: 'grid',
-      styles: {
-        font: 'Inter',
-        fontSize: 8,
-        textColor: INK,
-        lineColor: RULE,
-        lineWidth: 0.1,
-        cellPadding: 1.4,
-        valign: 'middle',
-        overflow: 'linebreak',
-      },
-      headStyles: {
-        font: 'Inter',
-        fontStyle: 'bold',
-        fillColor: false,
-        textColor: INK,
-        lineColor: RULE,
-        lineWidth: 0.2,
-      },
-      columnStyles: {
-        0: { cellWidth: qtyW, halign: 'right', font: MONO },
-        1: { cellWidth: treeW },
-        2: { cellWidth: partW, font: MONO },
-        3: { cellWidth: kitDescW },
-      },
-      didParseCell: (data) => {
-        if (data.section === 'body' && data.cell.colSpan === 4) {
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.font = 'Inter';
-          data.cell.styles.textColor = INK;
-          data.cell.styles.halign = 'center';
-        }
-        if (data.section === 'head' && data.column.index === 3) {
-          data.cell.styles.halign = 'left';
-        }
-      },
-      didDrawCell: (data) => {
-        if (data.section !== 'body') return;
-        if (data.cell.colSpan && data.cell.colSpan > 1) return; // kit header
-        // Tree connectors in the dedicated tree column.
-        if (data.column.index === 1) {
-          drawTreeCell(doc, data, treeStep);
-          return;
-        }
-        // Alternates chip in the part-number column.
-        if (data.column.index === 2) {
-          const raw = data.cell.raw;
-          const altCount = raw && typeof raw === 'object' ? raw._alt : 0;
-          if (!altCount) return;
-          doc.setFont(MONO, 'normal');
-          doc.setFontSize(8);
-          const txt = (raw && raw.content) || '';
-          const txtW = doc.getTextWidth(String(txt));
-          const chipW = altChipWidth(doc, altCount);
-          const padLeft = 1.4;
-          const desiredX = data.cell.x + padLeft + txtW + 1.4;
-          const maxX = data.cell.x + data.cell.width - chipW - 0.6;
-          const chipX = Math.min(
-            desiredX,
-            Math.max(data.cell.x + padLeft, maxX)
-          );
-          drawAltChip(doc, chipX, data.cell.y + data.cell.height / 2, altCount);
-        }
-      },
-    });
+    drawKitTreeSection(doc, kits, materialById, alternatesMap, ky + 4);
   }
 
   drawFooter(doc);
   doc.save(pdfName(project.name, 'materials'));
 }
 
-// Recursively append a kit's contents as table rows. Cycle-guarded.
+// Flatten a kit into an ordered list of render nodes for the rich tree.
+// Node 0 is the kit itself (the root, drawn as a bold line with no quantity);
+// the rest are its contents, depth-first. Cycle-guarded.
 //
-// Each row is [Qty, TreeCell, PartCell, Description]:
-//   - TreeCell carries `_tree = { ancestorsContinue, isLast }` so the tree
-//     connectors can be drawn as vector lines in didDrawCell. `ancestorsContinue`
-//     is one boolean per ancestor level: true where that ancestor has a later
-//     sibling (so a vertical line continues down through this row).
-//   - PartCell carries `_alt` (interchange alternates count) for the chip.
-//
-// `ancestorsContinue` passed in describes the levels above `components`.
-// Returns the deepest level reached, so the caller can size the tree column.
-function appendKitRows(
-  body,
-  components,
-  materialById,
-  seen,
-  alternatesMap,
-  ancestorsContinue
-) {
-  let maxDepth = ancestorsContinue.length + 1;
-  components.forEach((comp, i) => {
-    const isLast = i === components.length - 1;
-    const child = materialById.get(comp.materialId);
-    if (!child) {
-      body.push([
-        String(comp.qty ?? ''),
-        { content: '', _tree: { ancestorsContinue: ancestorsContinue.slice(), isLast, hasChildren: false } },
-        '(missing)',
-        '',
-      ]);
-      return;
-    }
-    const isCycle = seen.has(comp.materialId);
-    const hasChildren =
-      !!child.isKit &&
-      !isCycle &&
-      Array.isArray(child.components) &&
-      child.components.length > 0;
-    const tree = {
-      ancestorsContinue: ancestorsContinue.slice(),
-      isLast,
-      hasChildren,
-    };
-    const desc = [
-      child.description || '',
-      child.isKit ? '[kit]' : '',
-      isCycle ? '— circular' : '',
-    ]
-      .filter(Boolean)
-      .join('  ');
-    const set = alternatesMap && alternatesMap.get(comp.materialId);
-    const altCount = set ? set.size - 1 : 0;
-    body.push([
-      String(comp.qty ?? ''),
-      { content: '', _tree: tree },
-      { content: child.partNumber || '', _alt: altCount },
-      desc,
-    ]);
-    if (hasChildren) {
-      const nextSeen = new Set(seen);
-      nextSeen.add(comp.materialId);
-      const childMax = appendKitRows(
-        body,
-        child.components,
-        materialById,
-        nextSeen,
-        alternatesMap,
-        [...ancestorsContinue, !isLast]
-      );
-      maxDepth = Math.max(maxDepth, childMax);
-    }
+// Each node: { depth, ancestorsContinue, isLast, isRoot, hasChildren, qty,
+// pn, desc, isKit, altCount, isCycle }. `ancestorsContinue[i]` is true where
+// the ancestor at level i still has a later sibling (so a vertical line runs
+// down through this row).
+function flattenKit(kit, materialById, alternatesMap, out) {
+  const altOf = (id) => {
+    const s = alternatesMap && alternatesMap.get(id);
+    return s ? s.size - 1 : 0;
+  };
+  out.push({
+    depth: 0,
+    ancestorsContinue: [],
+    isLast: true,
+    isRoot: true,
+    hasChildren: Array.isArray(kit.components) && kit.components.length > 0,
+    qty: null,
+    pn: kit.partNumber || '',
+    desc: kit.description || '',
+    isKit: true,
+    altCount: altOf(kit.id),
+    isCycle: false,
   });
-  return maxDepth;
+  const walk = (components, ancestorsContinue, seen) => {
+    if (!Array.isArray(components)) return;
+    components.forEach((comp, i) => {
+      const isLast = i === components.length - 1;
+      const child = materialById.get(comp.materialId);
+      const isCycle = child ? seen.has(comp.materialId) : false;
+      const hasChildren =
+        !!(child && child.isKit) &&
+        !isCycle &&
+        Array.isArray(child.components) &&
+        child.components.length > 0;
+      out.push({
+        depth: ancestorsContinue.length + 1,
+        ancestorsContinue: ancestorsContinue.slice(),
+        isLast,
+        isRoot: false,
+        hasChildren,
+        qty: comp.qty,
+        pn: child ? child.partNumber || '' : '(missing)',
+        desc: child
+          ? [child.description || '', isCycle ? '\u2014 circular' : '']
+              .filter(Boolean)
+              .join('  ')
+          : '',
+        isKit: !!(child && child.isKit),
+        altCount: child ? altOf(comp.materialId) : 0,
+        isCycle,
+      });
+      if (hasChildren) {
+        const nextSeen = new Set(seen);
+        nextSeen.add(comp.materialId);
+        walk(child.components, [...ancestorsContinue, !isLast], nextSeen);
+      }
+    });
+  };
+  walk(kit.components, [], new Set([kit.id]));
 }
 
-// Draw the tree connectors for one kit-list row into its tree-column cell.
-//
-// Because part numbers live in a separate column (not inline with the tree),
-// a parent must explicitly link to its children: when a node has children it
-// reaches one column to the right and drops a vertical line, which the first
-// child's connect-up stub meets. Sibling spines are carried by the per-node
-// down-continue plus the ancestor pass-through bars.
-function drawTreeCell(doc, data, step) {
-  const raw = data.cell.raw;
-  const meta = raw && typeof raw === 'object' ? raw._tree : null;
-  if (!meta) return;
-  const x0 = data.cell.x;
-  const top = data.cell.y;
-  const bottom = data.cell.y + data.cell.height;
-  const mid = data.cell.y + data.cell.height / 2;
-  const lineX = (k) => x0 + k * step + 1.6;
-  const d = meta.ancestorsContinue.length; // 0-based column of this node
+// Small rounded "KIT" / "PART" type pill. Kit = light accent wash + accent
+// text; part = light grey + muted text. Returns x after the pill.
+const PILL = { h: 3.4, padX: 1.3, fontSize: 6 };
+
+function pillWidth(doc, isKit) {
+  doc.setFont('Inter', 'bold');
+  doc.setFontSize(PILL.fontSize);
+  return doc.getTextWidth(isKit ? 'KIT' : 'PART') + PILL.padX * 2;
+}
+
+function drawTypePill(doc, x, centerY, isKit) {
+  const txt = isKit ? 'KIT' : 'PART';
+  doc.setFont('Inter', 'bold');
+  doc.setFontSize(PILL.fontSize);
+  const w = doc.getTextWidth(txt) + PILL.padX * 2;
+  const y = centerY - PILL.h / 2;
+  if (isKit) {
+    doc.setFillColor(223, 233, 245);
+    doc.roundedRect(x, y, w, PILL.h, 0.7, 0.7, 'F');
+    doc.setTextColor(...TREE);
+  } else {
+    doc.setFillColor(234, 234, 234);
+    doc.roundedRect(x, y, w, PILL.h, 0.7, 0.7, 'F');
+    doc.setTextColor(110, 110, 110);
+  }
+  doc.text(txt, x + PILL.padX, centerY + 0.05, { baseline: 'middle' });
+  doc.setTextColor(...INK);
+  return x + w;
+}
+
+// Draw one render node as a row of the rich kit tree and return the y of the
+// row's bottom. Console-tree connectors (accent blue) link parents to
+// children; the horizontal arm runs all the way to the start of the row's
+// content. Content: quantity (accent, small x) - PN (mono) - type pill -
+// alternates chip - description (pale, wraps). Page-break aware.
+function drawKitNode(doc, node, cfg, y) {
+  const { left, right, step, lineH, rowPadV, pageBottom } = cfg;
+  const D = node.depth;
+  const vx = (k) => left + k * step;
+  // Content sits one full step past the children's drop column (vx(D)). This
+  // keeps the per-level indentation uniform AND lets the parent's horizontal
+  // arm extend well past the drop on the right, so the child-drop lands near
+  // the centre of the arm rather than hugging its right end.
+  const contentX = left + D * step + 5;
+
+  // measure prefix widths so the description can wrap into the remaining room
+  let qtyW = 0;
+  const qtyStr = node.qty != null ? String(node.qty) : '';
+  if (qtyStr) {
+    doc.setFont(MONO, 'bold');
+    doc.setFontSize(8.5);
+    const numW = doc.getTextWidth(qtyStr);
+    doc.setFontSize(6.2);
+    const xW = doc.getTextWidth('\u00d7');
+    qtyW = numW + 0.4 + xW + 1.8;
+  }
+  doc.setFont(MONO, node.isRoot ? 'bold' : 'normal');
+  doc.setFontSize(8.5);
+  const pnW = doc.getTextWidth(node.pn || '');
+  const pW = pillWidth(doc, node.isKit);
+  const chipW = node.altCount ? altChipWidth(doc, node.altCount) : 0;
+
+  const pnX = contentX + qtyW;
+  const pillX = pnX + pnW + 2;
+  const chipX = pillX + pW + 2;
+  const descX = chipX + (chipW ? chipW + 2 : 0);
+
+  doc.setFont('Inter', 'normal');
+  doc.setFontSize(8);
+  const descLines = node.desc
+    ? doc.splitTextToSize(node.desc, Math.max(24, right - descX))
+    : [];
+  const nLines = Math.max(1, descLines.length);
+  const rowH = nLines * lineH + rowPadV * 2;
+
+  if (y + rowH > pageBottom) {
+    doc.addPage();
+    y = PAGE.margin;
+  }
+  const top = y;
+  const bottom = y + rowH;
+  const firstMid = y + rowPadV + lineH / 2;
 
   doc.setDrawColor(...TREE);
-  doc.setLineWidth(0.35);
+  doc.setLineWidth(0.25);
 
-  // Pass-through vertical bars for ancestor levels with later siblings.
-  meta.ancestorsContinue.forEach((cont, i) => {
-    if (cont) doc.line(lineX(i), top, lineX(i), bottom);
-  });
-
-  // This node: connect up to the parent/sibling spine, continue down if it
-  // isn't the last sibling.
-  doc.line(lineX(d), top, lineX(d), mid);
-  if (!meta.isLast) doc.line(lineX(d), mid, lineX(d), bottom);
-
-  if (meta.hasChildren) {
-    // Reach over to the children's column and drop, starting their spine —
-    // the first child's connect-up stub meets this drop.
-    doc.line(lineX(d), mid, lineX(d + 1), mid);
-    doc.line(lineX(d + 1), mid, lineX(d + 1), bottom);
+  if (!node.isRoot) {
+    const d = node.ancestorsContinue.length; // = D - 1
+    node.ancestorsContinue.forEach((cont, i) => {
+      if (cont) doc.line(vx(i), top, vx(i), bottom);
+    });
+    doc.line(vx(d), top, vx(d), firstMid); // connect up
+    if (!node.isLast) doc.line(vx(d), firstMid, vx(d), bottom); // continue down
+    doc.line(vx(d), firstMid, contentX - 1.5, firstMid); // arm to content
   } else {
-    // Leaf: a short arm pointing toward the part number.
-    doc.line(lineX(d), mid, lineX(d) + step * 0.6, mid);
+    // root: short arm linking the spine top to the kit label
+    doc.line(vx(0), firstMid, contentX - 1.5, firstMid);
   }
+  if (node.hasChildren) {
+    // drop into the children's column; the first child's up-stub meets it
+    doc.line(vx(D), firstMid, vx(D), bottom);
+  }
+
+  // quantity - accent blue, small x
+  if (qtyStr) {
+    doc.setTextColor(...TREE);
+    doc.setFont(MONO, 'bold');
+    doc.setFontSize(8.5);
+    doc.text(qtyStr, contentX, firstMid, { baseline: 'middle' });
+    const numW = doc.getTextWidth(qtyStr);
+    doc.setFontSize(6.2);
+    doc.text('\u00d7', contentX + numW + 0.4, firstMid, { baseline: 'middle' });
+  }
+  // part number - mono, bold for the root
+  doc.setTextColor(...INK);
+  doc.setFont(MONO, node.isRoot ? 'bold' : 'normal');
+  doc.setFontSize(8.5);
+  doc.text(node.pn || '', pnX, firstMid, { baseline: 'middle' });
+  // type pill
+  drawTypePill(doc, pillX, firstMid, node.isKit);
+  // alternates chip
+  if (node.altCount) drawAltChip(doc, chipX, firstMid, node.altCount);
+  // description - slightly pale dark, wrapped
+  if (descLines.length) {
+    doc.setFont('Inter', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(85, 85, 85);
+    let dy = firstMid;
+    for (const ln of descLines) {
+      doc.text(ln, descX, dy, { baseline: 'middle' });
+      dy += lineH;
+    }
+    doc.setTextColor(...INK);
+  }
+  return bottom;
+}
+
+// Draw every kit as a fully-expanded rich tree. Returns the final y.
+function drawKitTreeSection(doc, kits, materialById, alternatesMap, startY) {
+  const cfg = {
+    left: PAGE.margin,
+    right: PAGE.width - PAGE.margin,
+    step: 5,
+    lineH: 4.2,
+    rowPadV: 1.6,
+    pageBottom: PAGE.height - 12,
+  };
+  let y = startY;
+  kits.forEach((kit, idx) => {
+    if (idx > 0) y += 3;
+    // keep a kit's root with a couple of rows together on the same page
+    if (y + 18 > cfg.pageBottom) {
+      doc.addPage();
+      y = PAGE.margin;
+    }
+    const nodes = [];
+    flattenKit(kit, materialById, alternatesMap, nodes);
+    for (const node of nodes) {
+      y = drawKitNode(doc, node, cfg, y);
+    }
+  });
+  return y;
 }
 
 // A small light-grey chip showing the interchange-alternates count, drawn
