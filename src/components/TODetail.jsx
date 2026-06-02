@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
+import { formatDateDMY } from '../lib/format';
 
 // ----- expanded view for one Technical Order: its parts -----
 
@@ -163,6 +164,29 @@ function TOPartCard({ part, configs, htls, configById, htlById, isAdmin }) {
     await updateDoc(partRef, { htlId: value });
   }
 
+  // Free-text fields (justification, tech comments). Stored verbatim so line
+  // breaks are preserved; only no-op saves are skipped.
+  async function changeText(field, value) {
+    if ((part[field] || '') === value) return;
+    await updateDoc(partRef, { [field]: value });
+  }
+
+  // Check level: a whole number 1–7, the string "Special", or empty to clear.
+  // Stored as a number for 1–7 so it sorts/compares numerically, and as the
+  // literal string for "Special".
+  async function changeCheckLevel(value) {
+    const raw = value || '';
+    const next = raw === '' ? null : raw === 'Special' ? 'Special' : Number(raw);
+    if (next === (part.checkLevel ?? null)) return;
+    await updateDoc(partRef, { checkLevel: next });
+  }
+
+  async function changeEndDate(value) {
+    const v = value || '';
+    if ((part.endDate || '') === v) return;
+    await updateDoc(partRef, { endDate: v });
+  }
+
   async function remove() {
     if (!window.confirm(`Delete "${part.partLabel}"?`)) return;
     await deleteDoc(partRef);
@@ -184,6 +208,34 @@ function TOPartCard({ part, configs, htls, configById, htlById, isAdmin }) {
         <p className="op-readline">
           <span className="op-field-label">Uses HTL:</span>{' '}
           {htl ? htl.htlRef : <span className="dim">not set</span>}
+        </p>
+
+        <ReadField label="Justification" value={part.justification} multiline />
+        <ReadField
+          label="Tech comments for Planning"
+          value={part.techCommentsPlanning}
+          multiline
+        />
+        <ReadField
+          label="Tech comments for Materials"
+          value={part.techCommentsMaterials}
+          multiline
+        />
+        <p className="op-readline">
+          <span className="op-field-label">Check level:</span>{' '}
+          {part.checkLevel != null ? (
+            part.checkLevel
+          ) : (
+            <span className="dim">not set</span>
+          )}
+        </p>
+        <p className="op-readline">
+          <span className="op-field-label">End date:</span>{' '}
+          {part.endDate ? (
+            formatDateDMY(part.endDate)
+          ) : (
+            <span className="dim">not set</span>
+          )}
         </p>
       </div>
     );
@@ -238,6 +290,96 @@ function TOPartCard({ part, configs, htls, configById, htlById, isAdmin }) {
           ))}
         </select>
       </label>
+
+      <label className="op-field">
+        <span className="op-field-label">Justification</span>
+        <textarea
+          className="op-text"
+          rows={4}
+          defaultValue={part.justification || ''}
+          key={'just' + part.id}
+          onBlur={(e) => changeText('justification', e.target.value)}
+          placeholder="Why this part exists…"
+        />
+      </label>
+
+      <label className="op-field">
+        <span className="op-field-label">Tech comments for Planning</span>
+        <textarea
+          className="op-text"
+          rows={4}
+          defaultValue={part.techCommentsPlanning || ''}
+          key={'plan' + part.id}
+          onBlur={(e) => changeText('techCommentsPlanning', e.target.value)}
+          placeholder="Notes for Planning…"
+        />
+      </label>
+
+      <label className="op-field">
+        <span className="op-field-label">Tech comments for Materials</span>
+        <textarea
+          className="op-text"
+          rows={4}
+          defaultValue={part.techCommentsMaterials || ''}
+          key={'mat' + part.id}
+          onBlur={(e) => changeText('techCommentsMaterials', e.target.value)}
+          placeholder="Notes for Materials…"
+        />
+      </label>
+
+      <label className="op-field">
+        <span className="op-field-label">Check level</span>
+        <select
+          className="input select"
+          value={part.checkLevel ?? ''}
+          onChange={(e) => changeCheckLevel(e.target.value)}
+        >
+          <option value="">— choose check level —</option>
+          <option value="Special">Special</option>
+          {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="op-field">
+        <span className="op-field-label">End date</span>
+        <input
+          className="input"
+          type="date"
+          defaultValue={part.endDate || ''}
+          key={'end' + part.id + (part.endDate || '')}
+          onBlur={(e) => changeEndDate(e.target.value)}
+        />
+      </label>
     </div>
+  );
+}
+
+// ----- read-only field for the viewer card: label + value (or "not set").
+//       `multiline` renders the value in a pre-wrap box so paragraph breaks
+//       in the tech comments / justification are preserved. -----
+
+function ReadField({ label, value, multiline }) {
+  const v = (value || '').trim();
+  if (multiline) {
+    return (
+      <div className="op-field">
+        <span className="op-field-label">{label}</span>
+        {v ? (
+          <p className="op-readtext">{value}</p>
+        ) : (
+          <p className="op-readline dim">not set</p>
+        )}
+      </div>
+    );
+  }
+  return (
+    <p className="op-readline">
+      <span className="op-field-label">{label}:</span>{' '}
+      {v ? value : <span className="dim">not set</span>}
+    </p>
   );
 }

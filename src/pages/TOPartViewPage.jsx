@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { COLLECTIONS } from '../lib/collections';
 import { computeConfigBucket, reconcileBucket, collectDrawingsForConfig } from '../lib/bucket';
 import { useScope } from '../lib/scope';
+import { formatDateDMY } from '../lib/format';
 import KitContents from '../components/KitContents';
 import AlternatesChip from '../components/AlternatesChip';
 
@@ -288,6 +289,40 @@ export default function TOPartViewPage() {
         )}
       </section>
 
+      {/* ---- engineering details ---- */}
+      <section className="panel">
+        <h2 className="panel-title">Engineering details</h2>
+        <TextDetail label="Justification" value={part.justification} />
+        <TextDetail
+          label="Tech comments for Planning"
+          value={part.techCommentsPlanning}
+        />
+        <TextDetail
+          label="Tech comments for Materials"
+          value={part.techCommentsMaterials}
+        />
+        <div className="form-row" style={{ marginTop: 4 }}>
+          <div className="field">
+            <p className="op-field-label">Check level</p>
+            {part.checkLevel != null ? (
+              <p className="op-readline mono strong">{part.checkLevel}</p>
+            ) : (
+              <p className="op-readline dim">not set</p>
+            )}
+          </div>
+          <div className="field">
+            <p className="op-field-label">End date</p>
+            {part.endDate ? (
+              <p className="op-readline mono strong">
+                {formatDateDMY(part.endDate)}
+              </p>
+            ) : (
+              <p className="op-readline dim">not set</p>
+            )}
+          </div>
+        </div>
+      </section>
+
       {/* ---- applicable drawings ---- */}
       <section className="panel">
         <div className="panel-titlebar">
@@ -432,6 +467,22 @@ export default function TOPartViewPage() {
           </>
         )}
       </section>
+    </div>
+  );
+}
+
+// ----- engineering detail field: label + multiline value (or "not set") -----
+
+function TextDetail({ label, value }) {
+  const v = (value || '').trim();
+  return (
+    <div className="op-field">
+      <p className="op-field-label">{label}</p>
+      {v ? (
+        <p className="op-readtext">{value}</p>
+      ) : (
+        <p className="op-readline dim">not set</p>
+      )}
     </div>
   );
 }

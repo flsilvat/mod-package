@@ -79,7 +79,18 @@ The deliverable. Built from one service bulletin, split into TO parts.
 
 ### `toParts` — TO_PART
 One "Part" of a TO. Covers exactly one SB config and uses exactly one HTL.
-`technicalOrderId` · `partLabel` · `sbConfigId` · `htlId`
+`technicalOrderId` · `partLabel` · `sbConfigId` · `htlId` ·
+`justification?` · `techCommentsPlanning?` · `techCommentsMaterials?` ·
+`checkLevel?` · `endDate?`
+
+The last five are engineering details, editable by admins only (enforced by
+the global admin-write rule) and shown on the TO Part full view between the
+Configuration and Drawings sections. `justification`,
+`techCommentsPlanning`, and `techCommentsMaterials` are multi-paragraph
+free text stored verbatim (line breaks preserved). `checkLevel` is a whole
+number 1–7 or the literal string `"Special"`. `endDate` is an ISO date
+string (`YYYY-MM-DD`), displayed as
+`10-May-2026`. All are optional — absent until an admin fills them in.
 
 ### `htls` — HTL
 Hierarchical task list. Groups GTLs and other HTLs into a tree.
