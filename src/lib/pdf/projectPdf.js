@@ -83,13 +83,16 @@ export function exportDrawingsPdf({
   y = drawGroupLegend(doc, { groups, sbsById, startY: y });
 
   const totalCols = 2 + groups.length;
-  const gW = groupColWidth(groups.length, 8, 13, 34 + 60);
-  const noW = 34;
-  const titleW = CONTENT_WIDTH - noW - gW * groups.length;
+  const TREE_PAD = 1.5; // left inset before the first connector column
+  const treeStep = 3; //   per-level indent inside the Drawing column
 
-  // Build body + a per-row map of which group columns get a tick.
+  // Build body + a per-row map of which group columns get a tick. A drawing
+  // with reference children renders as a tree (root + refs, connectors drawn
+  // in the Drawing column via didDrawCell); a childless drawing stays a plain
+  // flush-left row exactly as before.
   const body = [];
   const tickMap = {}; // bodyRowIndex -> Set<groupIndex>
+  let maxRefDepth = 0;
 
   for (const section of sectionsByPart(drawingRows, parts)) {
     body.push([
@@ -101,20 +104,40 @@ export function exportDrawingsPdf({
     ]);
     for (const row of section.rows) {
       const d = row.drawing;
-      const titleBits = [];
-      if (d.rev) titleBits.push(`rev ${d.rev}`);
-      if (d.sapDir) titleBits.push(`(${d.sapDir})`);
-      if (d.title) titleBits.push(d.title);
-      const arr = [d.docNumber || '', titleBits.join('  ·  ')];
-      for (let i = 0; i < groups.length; i++) arr.push('');
-      tickMap[body.length] = row.appliesTo;
-      body.push(arr);
-
-      // Ref tree, indented, no ticks (refs inherit their parent's columns).
       const refIds = Array.isArray(d.refDrawingIds) ? d.refDrawingIds : [];
-      appendDrawingRefRows(body, refIds, drawingById, 1, new Set([d.id]), groups.length);
+      if (!refIds.length) {
+        // No children -> plain row, no tree.
+        const arr = [d.docNumber || '', drawingDetail(d, false)];
+        for (let i = 0; i < groups.length; i++) arr.push('');
+        tickMap[body.length] = row.appliesTo;
+        body.push(arr);
+        continue;
+      }
+      // Has children -> the drawing and its ref tree, with connectors.
+      const flat = [];
+      flattenDrawingTree(d, drawingById, flat);
+      flat.forEach((node, idx) => {
+        const arr = [{ content: node.docNumber, _tree: node.tree }, node.detail];
+        for (let i = 0; i < groups.length; i++) arr.push('');
+        // Ticks belong to the root drawing only; refs inherit its columns.
+        if (idx === 0) tickMap[body.length] = row.appliesTo;
+        body.push(arr);
+        if (node.tree.depth > maxRefDepth) maxRefDepth = node.tree.depth;
+      });
     }
   }
+
+  // The Drawing column widens with the deepest ref nesting so indented
+  // numbers still fit; plain tables (no trees) keep the original width.
+  const noW =
+    maxRefDepth === 0
+      ? 34
+      : Math.min(
+          66,
+          Math.max(38, Math.ceil(TREE_PAD + (maxRefDepth + 1) * treeStep + 32))
+        );
+  const gW = groupColWidth(groups.length, 8, 13, noW + 56);
+  const titleW = CONTENT_WIDTH - noW - gW * groups.length;
 
   const head = [['Drawing', 'Detail', ...groups.map((_, i) => `G${i + 1}`)]];
 
@@ -164,9 +187,36 @@ export function exportDrawingsPdf({
       if (data.section === 'head' && data.column.index <= 1) {
         data.cell.styles.halign = 'left';
       }
+      // Indent a tree row's drawing number to leave room for its connectors.
+      if (data.section === 'body' && data.column.index === 0 && !isSection) {
+        const raw = data.cell.raw;
+        const meta = raw && typeof raw === 'object' ? raw._tree : null;
+        if (meta) {
+          data.cell.styles.cellPadding = {
+            top: 1.4,
+            right: 1.4,
+            bottom: 1.4,
+            left: TREE_PAD + (meta.depth + 1) * treeStep,
+          };
+        }
+      }
     },
     didDrawCell: (data) => {
       if (data.section !== 'body') return;
+      // Tree connectors in the Drawing column (only for ref-tree rows).
+      if (
+        data.column.index === 0 &&
+        !(data.cell.colSpan && data.cell.colSpan > 1)
+      ) {
+        const raw = data.cell.raw;
+        const meta = raw && typeof raw === 'object' ? raw._tree : null;
+        if (meta) {
+          drawDrawingTreeCell(doc, data, meta, {
+            startPad: TREE_PAD,
+            step: treeStep,
+          });
+        }
+      }
       if (data.column.index < 2) return;
       if (data.cell.colSpan && data.cell.colSpan > 1) return; // section row
       const ticks = tickMap[data.row.index];
@@ -184,34 +234,100 @@ export function exportDrawingsPdf({
   doc.save(pdfName(project.name, 'drawings'));
 }
 
-// Append indented ref-tree rows for a drawing's refDrawingIds. Cycle-guarded.
-function appendDrawingRefRows(body, refIds, drawingById, depth, seen, groupCount) {
-  for (const id of refIds) {
-    const d = drawingById.get(id);
-    const indent = '   '.repeat(depth) + '- ';
-    if (!d) {
-      const arr = [indent + '(missing)', ''];
-      for (let i = 0; i < groupCount; i++) arr.push('');
-      body.push(arr);
-      continue;
-    }
-    const isCycle = seen.has(id);
-    const titleBits = [];
-    if (d.rev) titleBits.push(`rev ${d.rev}`);
-    if (d.sapDir) titleBits.push(`(${d.sapDir})`);
-    if (d.title) titleBits.push(d.title);
-    if (isCycle) titleBits.push('— circular');
-    const arr = [indent + (d.docNumber || ''), titleBits.join('  ·  ')];
-    for (let i = 0; i < groupCount; i++) arr.push('');
-    body.push(arr);
-    if (!isCycle) {
-      const childRefs = Array.isArray(d.refDrawingIds) ? d.refDrawingIds : [];
-      if (childRefs.length) {
-        const nextSeen = new Set(seen);
-        nextSeen.add(id);
-        appendDrawingRefRows(body, childRefs, drawingById, depth + 1, nextSeen, groupCount);
+// Compose a drawing's "Detail" cell (rev / SAP dir / title), flagging cycles.
+function drawingDetail(d, isCycle) {
+  const bits = [];
+  if (d.rev) bits.push(`rev ${d.rev}`);
+  if (d.sapDir) bits.push(`(${d.sapDir})`);
+  if (d.title) bits.push(d.title);
+  if (isCycle) bits.push('\u2014 circular');
+  return bits.join('  \u00b7  ');
+}
+
+// Flatten a drawing + its reference tree into ordered render nodes (root at
+// depth 0, refs depth-first). Cycle-guarded. Mirrors flattenKit; each node
+// carries the tree metadata the connector drawer needs.
+function flattenDrawingTree(drawing, drawingById, out) {
+  out.push({
+    docNumber: drawing.docNumber || '',
+    detail: drawingDetail(drawing, false),
+    tree: {
+      depth: 0,
+      ancestorsContinue: [],
+      isLast: true,
+      isRoot: true,
+      hasChildren:
+        Array.isArray(drawing.refDrawingIds) &&
+        drawing.refDrawingIds.length > 0,
+    },
+  });
+  const walk = (refIds, ancestorsContinue, seen) => {
+    refIds.forEach((id, i) => {
+      const isLast = i === refIds.length - 1;
+      const dr = drawingById.get(id);
+      const isCycle = dr ? seen.has(id) : false;
+      const childRefs =
+        dr && !isCycle && Array.isArray(dr.refDrawingIds)
+          ? dr.refDrawingIds
+          : [];
+      const hasChildren = childRefs.length > 0;
+      out.push({
+        docNumber: dr ? dr.docNumber || '' : '(missing)',
+        detail: dr ? drawingDetail(dr, isCycle) : '',
+        tree: {
+          depth: ancestorsContinue.length + 1,
+          ancestorsContinue: ancestorsContinue.slice(),
+          isLast,
+          isRoot: false,
+          hasChildren,
+        },
+      });
+      if (hasChildren) {
+        const ns = new Set(seen);
+        ns.add(id);
+        walk(childRefs, [...ancestorsContinue, !isLast], ns);
       }
-    }
+    });
+  };
+  walk(
+    Array.isArray(drawing.refDrawingIds) ? drawing.refDrawingIds : [],
+    [],
+    new Set([drawing.id])
+  );
+}
+
+// Draw the accent-blue ref-tree connectors inside a Drawing-column cell.
+// Same geometry as the materials kit tree: ancestor pass-through bars, a
+// connect-up stub + arm per node, a down-continue when more siblings follow,
+// and a drop into the child column for nodes that have children. The drawing
+// number text is indented (via cellPadding) to sit just past the arm.
+function drawDrawingTreeCell(doc, data, meta, cfg) {
+  const { startPad, step } = cfg;
+  const x0 = data.cell.x;
+  const top = data.cell.y;
+  const bottom = data.cell.y + data.cell.height;
+  const mid = data.cell.y + data.cell.height / 2;
+  const vx = (k) => x0 + startPad + k * step;
+  const D = meta.depth;
+  const contentX = x0 + startPad + (D + 1) * step; // matches cellPadding.left
+
+  doc.setDrawColor(...TREE);
+  doc.setLineWidth(0.25);
+
+  if (!meta.isRoot) {
+    const d = meta.ancestorsContinue.length; // = D - 1
+    meta.ancestorsContinue.forEach((cont, i) => {
+      if (cont) doc.line(vx(i), top, vx(i), bottom);
+    });
+    doc.line(vx(d), top, vx(d), mid); // connect up
+    if (!meta.isLast) doc.line(vx(d), mid, vx(d), bottom); // continue down
+    doc.line(vx(d), mid, contentX - 1.5, mid); // arm to the drawing number
+  } else {
+    // root drawing: short arm linking the spine top to the number
+    doc.line(vx(0), mid, contentX - 1.5, mid);
+  }
+  if (meta.hasChildren) {
+    doc.line(vx(D), mid, vx(D), bottom); // drop to children
   }
 }
 
