@@ -95,7 +95,8 @@ export default function TechnicalOrdersPage() {
     return m;
   }, [htls]);
 
-  // Quick filter — matches the TO number or the bulletin reference.
+  // Quick filter — matches the TO number, the bulletin reference/rev, or the
+  // bulletin title (shown on each TO, so it's natural to search by it too).
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return tos;
@@ -104,7 +105,8 @@ export default function TechnicalOrdersPage() {
       return (
         t.toNumber.toLowerCase().includes(q) ||
         (sb && sb.sbRef.toLowerCase().includes(q)) ||
-        (sb && (sb.rev || '').toLowerCase().includes(q))
+        (sb && (sb.rev || '').toLowerCase().includes(q)) ||
+        (sb && (sb.title || '').toLowerCase().includes(q))
       );
     });
   }, [tos, filter, sbById]);
